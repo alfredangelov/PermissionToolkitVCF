@@ -1,2 +1,8 @@
 # Configuration files
 shared/Configuration.psd1
+
+# Test files and temporary directories
+Test-*.ps1
+/tmp/
+*-test/
+*-test.*

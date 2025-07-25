@@ -8,10 +8,23 @@ The toolkit is modular, uses a shared configuration, and includes scripts for en
 - Connects to vSphere environments
 - Audits and exports all permissions
 - Generates browsable HTML reports
+- **Interactive tooltip enhancements for HTML reports**
 - Modular design for maintainability
 - Centralized configuration management
 - Environment initialization and configuration validation scripts
 - Secure credential storage using PowerShell SecretManagement
+
+### Tooltip Features
+
+The `Permission-Tooltip.ps1` script enhances standard HTML reports with:
+
+- **Interactive Tooltips**: Hover over permission entries to see detailed information
+- **Detailed Role Information**: Role descriptions and specific permissions breakdown
+- **Accessibility Support**: Full keyboard navigation and screen reader compatibility
+- **Mobile Support**: Touch-enabled tooltips for mobile devices
+- **Filter Controls**: Client-side filtering by permission type (inherited, direct, propagating)
+- **Configurable Themes**: Choose from Dark, Light, or Blue visual themes
+- **Responsive Design**: Tooltips adapt to screen size and position
 
 ## Project Structure
 
@@ -20,12 +33,14 @@ The toolkit is modular, uses a shared configuration, and includes scripts for en
 ├── Build-Configuration.ps1           # Script to build project-specific configuration
 ├── Initialize-Environment.ps1        # Script to initialize the environment
 ├── Permission-Toolkit.ps1            # Main entry point for the toolkit
+├── Permission-Tooltip.ps1            # Script to enhance HTML reports with interactive tooltips
+├── Test-TooltipFunctionality.ps1     # Test script for tooltip functionality
 ├── Validate-Configuration.ps1        # Script to validate configuration and vCenter access
 ├── modules/
 │   ├── Connect-VSphere.psm1          # Module for vSphere connection logic
-│   ├── Export-HTML.Report.psm1       # Module for exporting HTML reports
+│   ├── Export-HTML.Report.psm1       # Module for HTML report generation and tooltip enhancement
 │   ├── Get-Permissions.psm1          # Module for retrieving permissions
-│   └── Utils.psm1                    # Utility functions
+│   └── Utils.psm1                    # Utility functions (role descriptions, data processing)
 ├── shared/
 │   └── Configuration-template.psd1            # Shared configuration file (gitignored)
 └── .gitignore
@@ -61,6 +76,21 @@ The toolkit is modular, uses a shared configuration, and includes scripts for en
    ./Permission-Toolkit.ps1
    ```
 
+5. **Enhance Reports with Tooltips (Optional)**
+
+   To add interactive tooltips to your HTML reports:
+
+   ```powershell
+   ./Permission-Tooltip.ps1 -InputHtmlPath "Permissions-Report.html" -OutputHtmlPath "Enhanced-Report.html" -PermissionData $permissions
+   ```
+
+   This will create an enhanced HTML report with:
+   - Interactive hover tooltips showing detailed permission information
+   - Keyboard accessibility (Tab navigation, Enter/Space to toggle)
+   - Mobile touch support
+   - Filter controls for different permission types
+   - Configurable themes (Dark, Light, Blue)
+
 ## Configuration
 
 A template configuration file is provided as `shared/Configuration-template.psd1`.  
@@ -79,6 +109,10 @@ Example:
     SourceServerHost = 'vcenter.domain.com'
     SourceServerPassword = '<ToBeSetOrStoredInVault>'
     SourceServerUsername = '<ToBeSetOrStoredInVault>'
+    
+    # Optional tooltip configuration
+    TooltipTheme = 'Dark'      # Options: Dark, Light, Blue
+    TooltipMaxWidth = 350      # Maximum tooltip width in pixels
 }
 ```
 
@@ -88,3 +122,27 @@ Example:
 
 Credentials are securely stored using PowerShell SecretManagement.  
 If not present, you will be prompted to enter and store them during configuration.
+
+## Modular Architecture
+
+The toolkit follows a modular design with separate concerns:
+
+### Utils.psm1
+- `Get-EntityIdentifier`: Generate unique identifiers for permission entities
+- `Get-RoleDescription`: Get human-readable descriptions for vSphere roles
+- `Get-DetailedPermissions`: Get detailed permission breakdowns for roles
+- `Format-TooltipContent`: Format tooltip content for HTML display
+- `Test-TooltipConfiguration`: Validate tooltip configuration settings
+
+### Export-HTML.Report.psm1
+- `Export-HTMLReport`: Generate basic HTML permission reports
+- `Convert-HtmlToTooltipEnabled`: Transform HTML elements to support tooltips
+- `Add-TooltipAssetsToHtml`: Inject CSS and JavaScript for tooltip functionality
+- `New-TooltipStylesheet`: Generate configurable CSS themes for tooltips
+- `New-TooltipJavaScript`: Generate interactive JavaScript for tooltip behavior
+
+This modular approach allows for:
+- **Better maintainability**: Each module has a specific responsibility
+- **Reusability**: Functions can be used by multiple scripts
+- **Testability**: Individual modules can be tested independently
+- **Extensibility**: New features can be added without modifying existing code

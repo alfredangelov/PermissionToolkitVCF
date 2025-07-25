@@ -52,7 +52,7 @@ The toolkit is modular, uses a shared configuration, and includes scripts for en
    ```powershell
    ./Validate-Configuration.ps1
    ```
-   
+
    This will check your configuration, test vCenter connectivity, and verify credentials.
 
 4. **Run the Toolkit**

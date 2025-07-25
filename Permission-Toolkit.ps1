@@ -64,4 +64,4 @@ Write-Host "`n✅ Report generated: $reportPath" -ForegroundColor Green
 # --- Disconnect ---
 Disconnect-VIServer -Server $viServer -Confirm:$false
 
-Write-Host "`n🎉 Permission
+Write-Host "`n🎉 Permission audit complete!"

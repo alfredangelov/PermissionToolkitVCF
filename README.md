@@ -128,6 +128,7 @@ If not present, you will be prompted to enter and store them during configuratio
 The toolkit follows a modular design with separate concerns:
 
 ### Utils.psm1
+
 - `Get-EntityIdentifier`: Generate unique identifiers for permission entities
 - `Get-RoleDescription`: Get human-readable descriptions for vSphere roles
 - `Get-DetailedPermissions`: Get detailed permission breakdowns for roles
@@ -135,6 +136,7 @@ The toolkit follows a modular design with separate concerns:
 - `Test-TooltipConfiguration`: Validate tooltip configuration settings
 
 ### Export-HTML.Report.psm1
+
 - `Export-HTMLReport`: Generate basic HTML permission reports
 - `Convert-HtmlToTooltipEnabled`: Transform HTML elements to support tooltips
 - `Add-TooltipAssetsToHtml`: Inject CSS and JavaScript for tooltip functionality
@@ -142,6 +144,7 @@ The toolkit follows a modular design with separate concerns:
 - `New-TooltipJavaScript`: Generate interactive JavaScript for tooltip behavior
 
 This modular approach allows for:
+
 - **Better maintainability**: Each module has a specific responsibility
 - **Reusability**: Functions can be used by multiple scripts
 - **Testability**: Individual modules can be tested independently

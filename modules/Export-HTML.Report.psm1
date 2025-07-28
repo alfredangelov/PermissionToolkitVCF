@@ -34,14 +34,19 @@ function Convert-HtmlToTooltipEnabled {
         $tooltipInfo = $TooltipData[$entityId]
         $tooltipContent = Format-TooltipContent -TooltipInfo $tooltipInfo
         
+        # Escape special regex characters in the values
+        $escapedEntityName = [regex]::Escape($tooltipInfo.EntityName)
+        $escapedPrincipal = [regex]::Escape($tooltipInfo.Principal)
+        $escapedRole = [regex]::Escape($tooltipInfo.Role)
+        
         # Create patterns to match permission entries in the HTML
         $patterns = @(
             # Match table rows containing the entity name
-            "(<tr[^>]*>.*?<td[^>]*>)($($tooltipInfo.EntityName))(</td>.*?</tr>)",
+            "(<tr[^>]*>.*?<td[^>]*>)($escapedEntityName)(</td>.*?</tr>)",
             # Match span or div elements containing the principal
-            "(<span[^>]*>|<div[^>]*>)($($tooltipInfo.Principal))(</span>|</div>)",
+            "(<span[^>]*>|<div[^>]*>)($escapedPrincipal)(</span>|</div>)",
             # Match role references
-            "(<td[^>]*>|<span[^>]*>)($($tooltipInfo.Role))(</td>|</span>)"
+            "(<td[^>]*>|<span[^>]*>)($escapedRole)(</td>|</span>)"
         )
         
         foreach ($pattern in $patterns) {
@@ -487,9 +492,9 @@ function Export-HTMLReport {
     foreach ($permission in $Permissions) {
         $htmlContent += @"
             <tr>
-                <td>$($permission.Entity ?? 'N/A')</td>
-                <td>$($permission.Principal ?? 'N/A')</td>
-                <td>$($permission.Role ?? 'N/A')</td>
+                <td>$(if ($permission.Entity) { $permission.Entity } else { 'N/A' })</td>
+                <td>$(if ($permission.Principal) { $permission.Principal } else { 'N/A' })</td>
+                <td>$(if ($permission.Role) { $permission.Role } else { 'N/A' })</td>
                 <td>$(if ($permission.Inherited) { 'Yes' } else { 'No' })</td>
                 <td>$(if ($permission.Propagate) { 'Yes' } else { 'No' })</td>
             </tr>

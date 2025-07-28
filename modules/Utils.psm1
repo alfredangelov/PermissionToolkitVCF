@@ -48,7 +48,11 @@ function Get-RoleDescription {
         'NetworkAdministrator' = 'Configure and manage network settings'
     }
     
-    return $roleDescriptions[$RoleName] ?? "Custom role: $RoleName"
+    if ($roleDescriptions.ContainsKey($RoleName)) {
+        return $roleDescriptions[$RoleName]
+    } else {
+        return "Custom role: $RoleName"
+    }
 }
 
 function Get-DetailedPermissions {
@@ -111,7 +115,11 @@ function Get-DetailedPermissions {
         )
     }
     
-    return $permissionDetails[$Role] ?? @("Custom role permissions for: $Role")
+    if ($permissionDetails.ContainsKey($Role)) {
+        return $permissionDetails[$Role]
+    } else {
+        return @("Custom role permissions for: $Role")
+    }
 }
 
 function Format-TooltipContent {

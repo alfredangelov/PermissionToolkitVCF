@@ -61,6 +61,70 @@ Export-HTMLReport -Permissions $permissions -OutputPath $reportPath -Config $con
 
 Write-Host "`n✅ Report generated: $reportPath" -ForegroundColor Green
 
+# --- Optional: Enhance with Tooltips ---
+if ($config.ContainsKey('EnableTooltips') -and $config.EnableTooltips -eq $true) {
+    Write-Host "`n🎯 Enhancing report with interactive tooltips..." -ForegroundColor Cyan
+    
+    try {
+        $enhancedReportPath = $reportPath -replace '\.html$', '-Enhanced.html'
+        
+        # Load tooltip enhancement modules if not already loaded
+        $tooltipModules = @('Utils.psm1', 'Export-HTML.Report.psm1')
+        foreach ($module in $tooltipModules) {
+            $modulePath = Join-Path $modulesPath $module
+            if (Test-Path $modulePath) {
+                Import-Module $modulePath -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        # Load HTML content
+        $htmlContent = Get-Content -Path $reportPath -Raw
+        
+        # Generate tooltip data
+        $tooltipData = @{}
+        foreach ($permission in $permissions) {
+            $entityId = Get-EntityIdentifier -Permission $permission
+            $tooltipInfo = @{
+                EntityName = $permission.Entity
+                EntityType = $permission.EntityType
+                Principal = $permission.Principal
+                Role = $permission.Role
+                RoleDescription = Get-RoleDescription -RoleName $permission.Role
+                Inherited = $permission.Inherited
+                Propagate = $permission.Propagate
+                Details = @{
+                    CreatedDate = $permission.CreatedDate
+                    ModifiedDate = $permission.ModifiedDate
+                    Source = $permission.Source
+                    Permissions = Get-DetailedPermissions -Role $permission.Role
+                }
+            }
+            $tooltipData[$entityId] = $tooltipInfo
+        }
+        
+        # Generate tooltip assets
+        $tooltipTheme = if ($config.ContainsKey('TooltipTheme')) { $config.TooltipTheme } else { 'Dark' }
+        $tooltipWidth = if ($config.ContainsKey('TooltipMaxWidth')) { $config.TooltipMaxWidth } else { 320 }
+        
+        $tooltipCSS = New-TooltipStylesheet -Theme $tooltipTheme -MaxWidth $tooltipWidth
+        $tooltipJS = New-TooltipJavaScript -EnableFiltering $true -EnableKeyboard $true
+        
+        # Enhance HTML
+        $enhancedHtml = Convert-HtmlToTooltipEnabled -HtmlContent $htmlContent -TooltipData $tooltipData
+        $enhancedHtml = Add-TooltipAssetsToHtml -HtmlContent $enhancedHtml -CSS $tooltipCSS -JavaScript $tooltipJS
+        
+        # Save enhanced report
+        $enhancedHtml | Out-File -FilePath $enhancedReportPath -Encoding UTF8
+        
+        Write-Host "✅ Enhanced report with tooltips: $enhancedReportPath" -ForegroundColor Green
+        Write-Host "🔢 Total tooltips added: $($tooltipData.Count)" -ForegroundColor Cyan
+    }
+    catch {
+        Write-Warning "Failed to enhance report with tooltips: $($_.Exception.Message)"
+        Write-Host "💡 You can manually enhance the report later using .\Permission-Tooltip.ps1" -ForegroundColor Yellow
+    }
+}
+
 # --- Disconnect ---
 Disconnect-VIServer -Server $viServer -Confirm:$false
 

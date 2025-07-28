@@ -9,7 +9,8 @@ Permissions-Report*
 Enhanced-Report*
 *-summary.json
 *-tooltip-summary.json
-HOWTO-Tooltip.ps1
+HOWTO-*.ps1
+HOWT-TO-Use-Tooltips.ps1
 
 # Test files and temporary directories
 Test-*.ps1

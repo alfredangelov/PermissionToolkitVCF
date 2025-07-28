@@ -211,11 +211,161 @@ function Test-TooltipConfiguration {
     return $validationResults
 }
 
+function Group-PermissionsByType {
+    <#
+    .SYNOPSIS
+        Groups permissions by their object type for organized reporting.
+    
+    .PARAMETER Permissions
+        Array of permission objects to group.
+    
+    .OUTPUTS
+        Returns a hashtable with grouped permissions and summary statistics.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Permissions
+    )
+    
+    $groupedPermissions = @{
+        Global = @()
+        VirtualMachine = @()
+        VMHost = @()
+        Cluster = @()
+        Datastore = @()
+        Folder = @()
+        Datacenter = @()
+        Network = @()
+        ResourcePool = @()
+        Other = @()
+    }
+    
+    $summary = @{
+        TotalPermissions = $Permissions.Count
+        GroupCounts = @{}
+    }
+    
+    foreach ($permission in $Permissions) {
+        # Determine the group based on Source and EntityType
+        $group = "Other"
+        
+        if ($permission.Source -eq "Global") {
+            $group = "Global"
+        }
+        elseif ($permission.EntityType) {
+            switch -Regex ($permission.EntityType) {
+                '^VirtualMachine|^VM' { $group = "VirtualMachine" }
+                '^HostSystem|^VMHost|^ESXi' { $group = "VMHost" }
+                '^ClusterComputeResource|^Cluster' { $group = "Cluster" }
+                '^Datastore' { $group = "Datastore" }
+                '^Folder' { $group = "Folder" }
+                '^Datacenter' { $group = "Datacenter" }
+                '^Network|^DistributedVirtualSwitch|^DistributedVirtualPortgroup' { $group = "Network" }
+                '^ResourcePool' { $group = "ResourcePool" }
+            }
+        }
+        
+        # Add to appropriate group
+        $groupedPermissions[$group] += $permission
+    }
+    
+    # Calculate group counts
+    foreach ($groupName in $groupedPermissions.Keys) {
+        $summary.GroupCounts[$groupName] = $groupedPermissions[$groupName].Count
+    }
+    
+    return @{
+        Groups = $groupedPermissions
+        Summary = $summary
+    }
+}
+
+function Get-GroupDisplayInfo {
+    <#
+    .SYNOPSIS
+        Gets display information for permission groups.
+    
+    .PARAMETER GroupName
+        The name of the permission group.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GroupName
+    )
+    
+    $groupInfo = @{
+        'Global' = @{
+            Icon = '🌐'
+            Title = 'Global Permissions'
+            Description = 'Root-level permissions that apply across the entire vCenter'
+            Color = '#e74c3c'
+        }
+        'VirtualMachine' = @{
+            Icon = '🖥️'
+            Title = 'Virtual Machine Permissions'
+            Description = 'Permissions specific to virtual machines'
+            Color = '#3498db'
+        }
+        'VMHost' = @{
+            Icon = '🖥️'
+            Title = 'ESXi Host Permissions'
+            Description = 'Permissions for ESXi hosts and host systems'
+            Color = '#9b59b6'
+        }
+        'Cluster' = @{
+            Icon = '🔗'
+            Title = 'Cluster Permissions'
+            Description = 'Permissions for compute clusters and cluster resources'
+            Color = '#e67e22'
+        }
+        'Datastore' = @{
+            Icon = '💾'
+            Title = 'Datastore Permissions'
+            Description = 'Permissions for datastores and storage resources'
+            Color = '#27ae60'
+        }
+        'Folder' = @{
+            Icon = '📁'
+            Title = 'Folder Permissions'
+            Description = 'Permissions for organizational folders and containers'
+            Color = '#f39c12'
+        }
+        'Datacenter' = @{
+            Icon = '🏢'
+            Title = 'Datacenter Permissions'
+            Description = 'Permissions for datacenter objects'
+            Color = '#2c3e50'
+        }
+        'Network' = @{
+            Icon = '🌐'
+            Title = 'Network Permissions'
+            Description = 'Permissions for networking components and virtual switches'
+            Color = '#16a085'
+        }
+        'ResourcePool' = @{
+            Icon = '⚡'
+            Title = 'Resource Pool Permissions'
+            Description = 'Permissions for resource pools and resource management'
+            Color = '#8e44ad'
+        }
+        'Other' = @{
+            Icon = '📋'
+            Title = 'Other Permissions'
+            Description = 'Permissions for miscellaneous objects and components'
+            Color = '#95a5a6'
+        }
+    }
+    
+    return $groupInfo[$GroupName]
+}
+
 # Export functions
 Export-ModuleMember -Function @(
     'Get-EntityIdentifier',
     'Get-RoleDescription', 
     'Get-DetailedPermissions',
     'Format-TooltipContent',
-    'Test-TooltipConfiguration'
+    'Test-TooltipConfiguration',
+    'Group-PermissionsByType',
+    'Get-GroupDisplayInfo'
 )

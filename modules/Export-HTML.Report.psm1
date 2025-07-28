@@ -28,9 +28,22 @@ function Convert-HtmlToTooltipEnabled {
     Write-Host "🔄 Converting HTML elements to tooltip-enabled format..."
     
     $enhancedHtml = $HtmlContent
+    $totalEntries = $TooltipData.Keys.Count
+    $processedCount = 0
+    $progressInterval = [math]::Max(1, [math]::Floor($totalEntries / 20)) # Show progress every 5%
+    
+    Write-Host "📊 Processing $totalEntries tooltip entries..." -ForegroundColor Cyan
     
     # Process each tooltip data entry
     foreach ($entityId in $TooltipData.Keys) {
+        $processedCount++
+        
+        # Show progress every interval or for small datasets
+        if ($processedCount % $progressInterval -eq 0 -or $totalEntries -le 50) {
+            $percentComplete = [math]::Round(($processedCount / $totalEntries) * 100, 1)
+            Write-Host "  🔄 Processing tooltips: $processedCount/$totalEntries ($percentComplete%)" -ForegroundColor Gray
+        }
+        
         $tooltipInfo = $TooltipData[$entityId]
         $tooltipContent = Format-TooltipContent -TooltipInfo $tooltipInfo
         
@@ -57,6 +70,8 @@ function Convert-HtmlToTooltipEnabled {
             }
         }
     }
+    
+    Write-Host "  ✅ Completed processing $processedCount tooltip entries" -ForegroundColor Green
     
     return $enhancedHtml
 }
@@ -87,6 +102,7 @@ function Add-TooltipAssetsToHtml {
     )
     
     Write-Host "💉 Injecting tooltip assets into HTML..."
+    Write-Host "  🎨 Adding CSS styles..." -ForegroundColor Gray
     
     $enhancedHtml = $HtmlContent
     
@@ -101,6 +117,8 @@ function Add-TooltipAssetsToHtml {
         $enhancedHtml = "$CSS`n$enhancedHtml"
     }
     
+    Write-Host "  📜 Adding JavaScript functionality..." -ForegroundColor Gray
+    
     # Add JavaScript before closing body tag
     if ($enhancedHtml -match '(</body>)') {
         $enhancedHtml = $enhancedHtml -replace '(</body>)', "$JavaScript`n`$1"
@@ -108,6 +126,8 @@ function Add-TooltipAssetsToHtml {
         # If no body tag, append JavaScript
         $enhancedHtml = "$enhancedHtml`n$JavaScript"
     }
+    
+    Write-Host "  ✅ Assets successfully injected" -ForegroundColor Green
     
     return $enhancedHtml
 }
@@ -428,7 +448,7 @@ function applyTooltipFilters() {
 function Export-HTMLReport {
     <#
     .SYNOPSIS
-        Exports permissions to an HTML report (placeholder for base functionality).
+        Exports permissions to a grouped HTML report.
     
     .PARAMETER Permissions
         Permission data to export.
@@ -450,9 +470,14 @@ function Export-HTMLReport {
         [hashtable]$Config
     )
     
-    Write-Host "📄 Generating basic HTML report..."
+    Write-Host "📄 Generating grouped HTML report..."
     
-    # Basic HTML structure - this would be enhanced with actual permission data
+    # Group permissions by type
+    $groupResult = Group-PermissionsByType -Permissions $Permissions
+    $groupedPermissions = $groupResult.Groups
+    $summary = $groupResult.Summary
+    
+    # Start building HTML
     $htmlContent = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -461,55 +486,323 @@ function Export-HTMLReport {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>vSphere Permissions Report</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .header { color: #2c3e50; margin-bottom: 20px; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background-color: white; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .header { 
+            color: #2c3e50; 
+            margin-bottom: 30px; 
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            color: #2c3e50;
+        }
+        .summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .summary-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .summary-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        .group-section {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .group-header {
+            padding: 15px 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .group-description {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        .group-count {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+        .group-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+        .group-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .group-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+        .group-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .inherited-badge {
+            background-color: #ffc107;
+            color: #856404;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .propagate-badge {
+            background-color: #28a745;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .role-badge {
+            background-color: #6c757d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }
+        .principal {
+            font-family: 'Courier New', monospace;
+            background-color: #f1f3f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .empty-group {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .toc h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .toc-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .toc-item:last-child {
+            border-bottom: none;
+        }
+        .toc-link {
+            text-decoration: none;
+            color: #495057;
+            display: flex;
+            align-items: center;
+        }
+        .toc-link:hover {
+            color: #007bff;
+        }
+        .toc-count {
+            background-color: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🔐 vSphere Permissions Report</h1>
-        <p>Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
-        <p>Server: $($Config.SourceServerHost)</p>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>Entity</th>
-                <th>Principal</th>
-                <th>Role</th>
-                <th>Inherited</th>
-                <th>Propagate</th>
-            </tr>
-        </thead>
-        <tbody>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 vSphere Permissions Report</h1>
+            <p><strong>Generated:</strong> $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
+            <p><strong>Server:</strong> $($Config.SourceServerHost)</p>
+        </div>
+        
+        <div class="summary">
+            <h2>📊 Summary Statistics</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-number">$($summary.TotalPermissions)</span>
+                    Total Permissions
+                </div>
 "@
-    
-    # Add permission rows
-    foreach ($permission in $Permissions) {
-        $htmlContent += @"
-            <tr>
-                <td>$(if ($permission.Entity) { $permission.Entity } else { 'N/A' })</td>
-                <td>$(if ($permission.Principal) { $permission.Principal } else { 'N/A' })</td>
-                <td>$(if ($permission.Role) { $permission.Role } else { 'N/A' })</td>
-                <td>$(if ($permission.Inherited) { 'Yes' } else { 'No' })</td>
-                <td>$(if ($permission.Propagate) { 'Yes' } else { 'No' })</td>
-            </tr>
+
+    # Add summary for each group
+    foreach ($groupName in $groupedPermissions.Keys) {
+        $count = $summary.GroupCounts[$groupName]
+        if ($count -gt 0) {
+            $groupInfo = Get-GroupDisplayInfo -GroupName $groupName
+            $htmlContent += @"
+                <div class="summary-item">
+                    <span class="summary-number">$count</span>
+                    $($groupInfo.Icon) $($groupInfo.Title -replace ' Permissions', '')
+                </div>
 "@
+        }
     }
-    
+
     $htmlContent += @"
-        </tbody>
-    </table>
+            </div>
+        </div>
+        
+        <div class="toc">
+            <h3>📑 Table of Contents</h3>
+            <ul class="toc-list">
+"@
+
+    # Build table of contents
+    foreach ($groupName in $groupedPermissions.Keys) {
+        $count = $summary.GroupCounts[$groupName]
+        if ($count -gt 0) {
+            $groupInfo = Get-GroupDisplayInfo -GroupName $groupName
+            $htmlContent += @"
+                <li class="toc-item">
+                    <a href="#group-$groupName" class="toc-link">
+                        $($groupInfo.Icon) $($groupInfo.Title)
+                    </a>
+                    <span class="toc-count">$count</span>
+                </li>
+"@
+        }
+    }
+
+    $htmlContent += @"
+            </ul>
+        </div>
+"@
+
+    # Add sections for each group
+    foreach ($groupName in $groupedPermissions.Keys) {
+        $groupPermissions = $groupedPermissions[$groupName]
+        $count = $summary.GroupCounts[$groupName]
+        
+        if ($count -gt 0) {
+            $groupInfo = Get-GroupDisplayInfo -GroupName $groupName
+            
+            $htmlContent += @"
+        <div class="group-section" id="group-$groupName">
+            <div class="group-header" style="background-color: $($groupInfo.Color);">
+                <div>
+                    <div>$($groupInfo.Icon) $($groupInfo.Title)</div>
+                    <div class="group-description">$($groupInfo.Description)</div>
+                </div>
+                <div class="group-count">$count permissions</div>
+            </div>
+"@
+
+            if ($groupPermissions.Count -gt 0) {
+                $htmlContent += @"
+            <table class="group-table">
+                <thead>
+                    <tr>
+                        <th>Entity</th>
+                        <th>Principal</th>
+                        <th>Role</th>
+                        <th>Properties</th>
+                    </tr>
+                </thead>
+                <tbody>
+"@
+
+                # Add permission rows for this group
+                foreach ($permission in $groupPermissions) {
+                    $inheritedBadge = if ($permission.Inherited) { '<span class="inherited-badge">INHERITED</span>' } else { '' }
+                    $propagateBadge = if ($permission.Propagate) { '<span class="propagate-badge">PROPAGATE</span>' } else { '' }
+                    
+                    # Simple HTML encoding
+                    $entityName = if ($permission.Entity) { $permission.Entity -replace '<', '&lt;' -replace '>', '&gt;' -replace '&', '&amp;' } else { 'N/A' }
+                    $principalName = if ($permission.Principal) { $permission.Principal -replace '<', '&lt;' -replace '>', '&gt;' -replace '&', '&amp;' } else { 'N/A' }
+                    $roleName = if ($permission.Role) { $permission.Role -replace '<', '&lt;' -replace '>', '&gt;' -replace '&', '&amp;' } else { 'N/A' }
+                    
+                    $htmlContent += @"
+                    <tr>
+                        <td>$entityName</td>
+                        <td><span class="principal">$principalName</span></td>
+                        <td><span class="role-badge">$roleName</span></td>
+                        <td>$inheritedBadge $propagateBadge</td>
+                    </tr>
+"@
+                }
+
+                $htmlContent += @"
+                </tbody>
+            </table>
+"@
+            } else {
+                $htmlContent += @"
+            <div class="empty-group">
+                No permissions found in this category
+            </div>
+"@
+            }
+
+            $htmlContent += @"
+        </div>
+"@
+        }
+    }
+
+    $htmlContent += @"
+    </div>
 </body>
 </html>
 "@
     
     $htmlContent | Out-File -FilePath $OutputPath -Encoding UTF8
-    Write-Host "✅ HTML report saved to: $OutputPath"
+    Write-Host "✅ Grouped HTML report saved to: $OutputPath"
+    Write-Host "📊 Report contains $($summary.TotalPermissions) permissions across $($summary.GroupCounts.Keys.Where({$summary.GroupCounts[$_] -gt 0}).Count) categories"
 }
 
 # Export functions

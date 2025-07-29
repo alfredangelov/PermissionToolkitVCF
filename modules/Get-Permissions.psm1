@@ -41,8 +41,33 @@ function Get-Permissions {
             Add-PermissionMetadata -Permission $_ -Server $Server
         }
         
-        Write-Host "Permission audit complete. Total permissions: $($processedPermissions.Count)" -ForegroundColor Green
-        return $processedPermissions
+        # Apply exclusion filtering if enabled
+        if ($Config.ContainsKey('EnablePermissionExclusion') -and $Config.EnablePermissionExclusion -eq $true) {
+            Write-Host "  Applying permission exclusions..." -ForegroundColor Yellow
+            
+            # Build exclusion file path
+            $exclusionFilePath = $Config.ExclusionFilePath
+            if (-not [System.IO.Path]::IsPathRooted($exclusionFilePath)) {
+                # If relative path, make it relative to the script root
+                $scriptRoot = $PSScriptRoot
+                if (-not $scriptRoot) {
+                    $scriptRoot = Split-Path -Parent $MyInvocation.PSCommandPath
+                }
+                $exclusionFilePath = Join-Path (Split-Path -Parent $scriptRoot) $exclusionFilePath
+            }
+            
+            # Load exclusion patterns
+            $exclusionPatterns = Read-ExclusionList -ExclusionFilePath $exclusionFilePath
+            
+            # Filter permissions
+            $filteredPermissions = Filter-PermissionsByExclusion -Permissions $processedPermissions -ExclusionPatterns $exclusionPatterns -ShowExclusionStats $true
+            
+            Write-Host "Permission audit complete. Total permissions: $($filteredPermissions.Count)" -ForegroundColor Green
+            return $filteredPermissions
+        } else {
+            Write-Host "Permission audit complete. Total permissions: $($processedPermissions.Count)" -ForegroundColor Green
+            return $processedPermissions
+        }
     }
     catch {
         Write-Error "Error during permission audit: $($_.Exception.Message)"

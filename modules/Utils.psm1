@@ -359,6 +359,394 @@ function Get-GroupDisplayInfo {
     return $groupInfo[$GroupName]
 }
 
+function Read-ExclusionList {
+    <#
+    .SYNOPSIS
+        Reads and parses the permission exclusion file.
+    
+    .PARAMETER ExclusionFilePath
+        Path to the exclusion file.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ExclusionFilePath
+    )
+    
+    if (-not (Test-Path $ExclusionFilePath)) {
+        Write-Warning "Exclusion file not found: $ExclusionFilePath"
+        return @()
+    }
+    
+    $exclusionPatterns = @()
+    $lineNumber = 0
+    
+    try {
+        $content = Get-Content -Path $ExclusionFilePath -ErrorAction Stop
+        
+        foreach ($line in $content) {
+            $lineNumber++
+            
+            # Skip empty lines and comments (lines starting with #)
+            $trimmedLine = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmedLine) -or $trimmedLine.StartsWith('#')) {
+                continue
+            }
+            
+            # Convert wildcard patterns to regex
+            # Escape special regex characters except *
+            $pattern = [regex]::Escape($trimmedLine)
+            # Convert escaped \* back to .* for wildcard matching
+            $pattern = $pattern -replace '\\\*', '.*'
+            # Anchor the pattern to match the entire string
+            $pattern = "^$pattern$"
+            
+            $exclusionPatterns += @{
+                Original = $trimmedLine
+                Regex = $pattern
+                LineNumber = $lineNumber
+            }
+        }
+        
+        Write-Host "✅ Loaded $($exclusionPatterns.Count) exclusion patterns from: $ExclusionFilePath" -ForegroundColor Green
+        
+        # Log the patterns for debugging
+        if ($exclusionPatterns.Count -gt 0) {
+            Write-Host "🔍 Exclusion patterns loaded:" -ForegroundColor Cyan
+            $exclusionPatterns | ForEach-Object {
+                $wildcardIndicator = if ($_.Original -like '*\*') { ' (wildcard)' } else { '' }
+                Write-Host "  Line $($_.LineNumber): $($_.Original)$wildcardIndicator" -ForegroundColor Gray
+            }
+        }
+        
+    } catch {
+        Write-Error "Failed to read exclusion file '$ExclusionFilePath': $($_.Exception.Message)"
+        return @()
+    }
+    
+    return $exclusionPatterns
+}
+
+function Test-PrincipalExclusion {
+    <#
+    .SYNOPSIS
+        Tests if a principal should be excluded based on exclusion patterns.
+    
+    .PARAMETER Principal
+        The principal name to test.
+    
+    .PARAMETER ExclusionPatterns
+        Array of exclusion pattern objects from Read-ExclusionList.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Principal,
+        
+        [Parameter(Mandatory = $true)]
+        [array]$ExclusionPatterns
+    )
+    
+    foreach ($pattern in $ExclusionPatterns) {
+        try {
+            if ($Principal -match $pattern.Regex) {
+                return @{
+                    IsExcluded = $true
+                    MatchedPattern = $pattern.Original
+                    LineNumber = $pattern.LineNumber
+                }
+            }
+        } catch {
+            Write-Warning "Invalid regex pattern on line $($pattern.LineNumber): $($pattern.Original)"
+            continue
+        }
+    }
+    
+    return @{
+        IsExcluded = $false
+        MatchedPattern = $null
+        LineNumber = $null
+    }
+}
+
+function Filter-PermissionsByExclusion {
+    <#
+    .SYNOPSIS
+        Filters permissions based on exclusion patterns.
+    
+    .PARAMETER Permissions
+        Array of permission objects to filter.
+    
+    .PARAMETER ExclusionPatterns
+        Array of exclusion pattern objects.
+    
+    .PARAMETER ShowExclusionStats
+        Whether to display exclusion statistics.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Permissions,
+        
+        [Parameter(Mandatory = $true)]
+        [array]$ExclusionPatterns,
+        
+        [Parameter()]
+        [bool]$ShowExclusionStats = $true
+    )
+    
+    if ($ExclusionPatterns.Count -eq 0) {
+        Write-Host "ℹ️ No exclusion patterns loaded - all permissions will be included" -ForegroundColor Yellow
+        return $Permissions
+    }
+    
+    $filteredPermissions = @()
+    $excludedPermissions = @()
+    $exclusionStats = @{}
+    
+    foreach ($permission in $Permissions) {
+        $exclusionTest = Test-PrincipalExclusion -Principal $permission.Principal -ExclusionPatterns $ExclusionPatterns
+        
+        if ($exclusionTest.IsExcluded) {
+            $excludedPermissions += $permission
+            
+            # Track exclusion statistics
+            $pattern = $exclusionTest.MatchedPattern
+            if (-not $exclusionStats.ContainsKey($pattern)) {
+                $exclusionStats[$pattern] = 0
+            }
+            $exclusionStats[$pattern]++
+        } else {
+            $filteredPermissions += $permission
+        }
+    }
+    
+    if ($ShowExclusionStats) {
+        Write-Host "`n🚫 Permission Exclusion Summary:" -ForegroundColor Cyan
+        Write-Host "  📊 Total permissions processed: $($Permissions.Count)" -ForegroundColor White
+        Write-Host "  ✅ Permissions included: $($filteredPermissions.Count)" -ForegroundColor Green
+        Write-Host "  ❌ Permissions excluded: $($excludedPermissions.Count)" -ForegroundColor Red
+        
+        if ($exclusionStats.Count -gt 0) {
+            Write-Host "`n📋 Exclusions by pattern:" -ForegroundColor Yellow
+            $exclusionStats.GetEnumerator() | Sort-Object Value -Descending | ForEach-Object {
+                Write-Host "  🔸 '$($_.Key)': $($_.Value) permissions" -ForegroundColor Gray
+            }
+        }
+    }
+    
+    return $filteredPermissions
+}
+
+function Get-ExternalSsoMembers {
+    <#
+    .SYNOPSIS
+        Analyzes SSO groups to identify external domain members (non-vsphere.local).
+    
+    .DESCRIPTION
+        Scans all SSO groups to find members from external domains.
+        Excludes the default vsphere.local domain and reports external integrations.
+        
+        Note: This function requires SSO cmdlets that may not be available in all PowerCLI versions.
+        If SSO cmdlets are not available, it will return graceful fallback information.
+    
+    .PARAMETER ExcludeDomain
+        Domain to exclude from analysis (default: vsphere.local).
+    
+    .OUTPUTS
+        Returns a hashtable with external domain analysis results.
+    #>
+    param(
+        [Parameter()]
+        [string]$ExcludeDomain = "vsphere.local"
+    )
+    
+    $analysis = @{
+        ExternalMembers = @()
+        ExternalDomains = @()
+        ErrorsEncountered = @()
+        TotalGroupsScanned = 0
+        HasInsufficientPrivileges = $false
+        SsoModuleNotAvailable = $false
+        FallbackMessage = $null
+    }
+    
+    try {
+        Write-Host "🔍 Starting SSO external domain analysis..." -ForegroundColor Cyan
+        Write-Host "   Excluding domain: $ExcludeDomain" -ForegroundColor Gray
+        
+        # Check if SSO cmdlets are available
+        $ssoGroupCommand = Get-Command "Get-SsoGroup" -ErrorAction SilentlyContinue
+        $ssoGroupMemberCommand = Get-Command "Get-SsoGroupMember" -ErrorAction SilentlyContinue
+        
+        if (-not $ssoGroupCommand -or -not $ssoGroupMemberCommand) {
+            Write-Host "⚠️ Traditional SSO cmdlets (Get-SsoGroup, Get-SsoGroupMember) are not available" -ForegroundColor Yellow
+            Write-Host "   This may be due to:" -ForegroundColor Gray
+            Write-Host "   • PowerCLI version compatibility" -ForegroundColor Gray
+            Write-Host "   • Missing SSO modules" -ForegroundColor Gray
+            Write-Host "   • vCenter version requirements" -ForegroundColor Gray
+            
+            $analysis.SsoModuleNotAvailable = $true
+            $analysis.FallbackMessage = @"
+SSO Analysis Unavailable - The traditional SSO cmdlets (Get-SsoGroup, Get-SsoGroupMember) are not available in this PowerCLI environment.
+
+Alternative approaches:
+1. Check vCenter Server UI: Administration > Single Sign On > Users and Groups
+2. Use vCenter API directly for SSO queries
+3. Update PowerCLI to a version that includes SSO cmdlets
+4. Check if additional SSO modules need to be imported
+
+This functionality requires access to SSO administrative APIs which may depend on:
+• PowerCLI version compatibility with your vCenter version
+• Specific SSO modules being available and loaded
+• SSO administrative privileges on the vCenter Server
+"@
+            
+            Write-Host "ℹ️ SSO analysis will be skipped - see HTML report for alternative approaches" -ForegroundColor Cyan
+            return $analysis
+        }
+        
+        # Get all SSO groups
+        Write-Host "   Retrieving SSO groups..." -ForegroundColor Gray
+        $ssoGroups = Get-SsoGroup -ErrorAction Stop
+        $analysis.TotalGroupsScanned = $ssoGroups.Count
+        
+        Write-Host "   Found $($ssoGroups.Count) SSO groups to analyze" -ForegroundColor Gray
+        
+        $groupCounter = 0
+        $domainsFound = @{}
+        
+        foreach ($group in $ssoGroups) {
+            $groupCounter++
+            
+            # Show progress every 10 groups
+            if ($groupCounter % 10 -eq 0) {
+                Write-Host "   Processing group $groupCounter of $($ssoGroups.Count)..." -ForegroundColor Gray
+            }
+            
+            try {
+                # Get group members
+                $members = Get-SsoGroupMember -Group $group -ErrorAction SilentlyContinue
+                
+                if ($members) {
+                    foreach ($member in $members) {
+                        # Extract domain from member name (typically DOMAIN\username or username@domain.com)
+                        $memberDomain = $null
+                        
+                        if ($member.Name -match '^([^\\]+)\\') {
+                            # Format: DOMAIN\username
+                            $memberDomain = $matches[1]
+                        }
+                        elseif ($member.Name -match '@([^@]+)$') {
+                            # Format: username@domain.com
+                            $memberDomain = $matches[1]
+                        }
+                        elseif ($member.Domain) {
+                            # Use Domain property if available
+                            $memberDomain = $member.Domain
+                        }
+                        
+                        # Check if this is an external domain
+                        if ($memberDomain -and $memberDomain -ne $ExcludeDomain) {
+                            $externalMember = @{
+                                GroupName = $group.Name
+                                GroupDescription = $group.Description
+                                MemberName = $member.Name
+                                MemberType = $member.Type
+                                MemberDomain = $memberDomain
+                                DiscoveredAt = Get-Date
+                            }
+                            
+                            $analysis.ExternalMembers += $externalMember
+                            
+                            # Track unique domains
+                            if (-not $domainsFound.ContainsKey($memberDomain)) {
+                                $domainsFound[$memberDomain] = @{
+                                    Domain = $memberDomain
+                                    MemberCount = 0
+                                    Groups = @()
+                                }
+                            }
+                            
+                            $domainsFound[$memberDomain].MemberCount++
+                            if ($domainsFound[$memberDomain].Groups -notcontains $group.Name) {
+                                $domainsFound[$memberDomain].Groups += $group.Name
+                            }
+                        }
+                    }
+                }
+            }
+            catch {
+                $errorInfo = @{
+                    GroupName = $group.Name
+                    ErrorMessage = $_.Exception.Message
+                    ErrorType = $_.Exception.GetType().Name
+                }
+                
+                $analysis.ErrorsEncountered += $errorInfo
+                
+                # Check for insufficient privileges error
+                if ($_.Exception.Message -match "insufficient|privilege|access|denied") {
+                    $analysis.HasInsufficientPrivileges = $true
+                }
+            }
+        }
+        
+        # Convert domains hashtable to array
+        $analysis.ExternalDomains = $domainsFound.Values
+        
+        Write-Host "✅ SSO analysis completed" -ForegroundColor Green
+        Write-Host "   Groups scanned: $($analysis.TotalGroupsScanned)" -ForegroundColor Gray
+        Write-Host "   External members found: $($analysis.ExternalMembers.Count)" -ForegroundColor Gray
+        Write-Host "   External domains found: $($analysis.ExternalDomains.Count)" -ForegroundColor Gray
+        
+        if ($analysis.ErrorsEncountered.Count -gt 0) {
+            Write-Host "   Errors encountered: $($analysis.ErrorsEncountered.Count)" -ForegroundColor Yellow
+            if ($analysis.HasInsufficientPrivileges) {
+                Write-Host "   ⚠️ Some groups may require higher privileges to analyze" -ForegroundColor Yellow
+            }
+        }
+        
+    }
+    catch {
+        $analysis.ErrorsEncountered += @{
+            GroupName = "SSO_SYSTEM"
+            ErrorMessage = $_.Exception.Message
+            ErrorType = $_.Exception.GetType().Name
+        }
+        
+        # Check for specific SSO cmdlet not found error
+        if ($_.Exception.Message -match "Get-SsoGroup.*not recognized|Get-SsoGroupMember.*not recognized") {
+            $analysis.SsoModuleNotAvailable = $true
+            $analysis.FallbackMessage = @"
+SSO Cmdlets Not Available - The PowerCLI SSO cmdlets are not available in this environment.
+
+This typically occurs when:
+• Using newer PowerCLI versions that have deprecated traditional SSO cmdlets
+• SSO modules are not installed or loaded
+• vCenter version incompatibility with PowerCLI SSO modules
+
+Alternative approaches for SSO external domain analysis:
+1. Manual vCenter UI check: Administration > Single Sign On > Users and Groups
+2. PowerCLI SDK methods using Identity APIs
+3. Direct vCenter REST API calls for SSO data
+4. Install compatible PowerCLI version with SSO module support
+
+For automated analysis, consider updating to use the newer vCenter Identity Provider APIs available in modern PowerCLI versions.
+"@
+            Write-Host "❌ SSO cmdlets not available - see HTML report for manual alternatives" -ForegroundColor Red
+        } else {
+            Write-Host "❌ Failed to retrieve SSO groups: $($_.Exception.Message)" -ForegroundColor Red
+            
+            # Check if this is a privilege issue
+            if ($_.Exception.Message -match "insufficient|privilege|access|denied|not authorized") {
+                $analysis.HasInsufficientPrivileges = $true
+                Write-Host "   This may be due to insufficient SSO administrative privileges" -ForegroundColor Yellow
+                Write-Host "   Please ensure you have SSO administrator access to run this analysis" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    return $analysis
+}
+
 # Export functions
 Export-ModuleMember -Function @(
     'Get-EntityIdentifier',
@@ -367,5 +755,9 @@ Export-ModuleMember -Function @(
     'Format-TooltipContent',
     'Test-TooltipConfiguration',
     'Group-PermissionsByType',
-    'Get-GroupDisplayInfo'
+    'Get-GroupDisplayInfo',
+    'Read-ExclusionList',
+    'Test-PrincipalExclusion',
+    'Filter-PermissionsByExclusion',
+    'Get-ExternalSsoMembers'
 )

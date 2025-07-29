@@ -13,6 +13,7 @@ HOWTO-*.ps1
 FullOutput-*.txt
 *-OPTIMIZATION.md
 test/*
+exclude-permissions.txt
 
 # Test files and temporary directories
 Test-*.ps1

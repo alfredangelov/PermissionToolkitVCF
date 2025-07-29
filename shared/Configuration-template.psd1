@@ -9,6 +9,13 @@
     ExportGlobalPermissions = 'true'  # Export global permissions
     ExportNormalPermissions = 'false'   # Export normal (object-level) permissions
     
+    # SSO Analysis options
+    EnableSsoAnalysis = $false                       # Analyze SSO groups for external domain members
+ 
+    # Permission filtering options
+    EnablePermissionExclusion = $false                    # Set to $true to enable exclusion filtering
+    #ExclusionFilePath = 'exclude-permissions.txt'       # Path to exclusion file (relative to script root)
+    
     # Optional: Tooltip configuration
     EnableTooltips = $false        # Set to $true to auto-enhance reports with tooltips
     TooltipTheme = 'Dark'          # Options: Dark, Light, Blue

@@ -455,6 +455,160 @@ function applyTooltipFilters() {
 "@
 }
 
+function Get-SsoAnalysisHtml {
+    <#
+    .SYNOPSIS
+        Generates HTML content for SSO external domain analysis.
+    
+    .PARAMETER SsoAnalysis
+        SSO analysis data to convert to HTML.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$SsoAnalysis
+    )
+    
+    $ssoHtml = @"
+        
+        <div class="sso-section">
+            <h2>🌐 SSO External Domain Analysis</h2>
+"@
+
+    # Check if SSO module is not available
+    if ($SsoAnalysis.SsoModuleNotAvailable) {
+        $ssoHtml += @"
+            <div class="sso-error">
+                <h3>⚠️ SSO Analysis Not Available</h3>
+                <p>SSO cmdlets are not available in this PowerCLI environment.</p>
+            </div>
+            <div class="sso-stats">
+                <h3>📋 Manual Alternatives</h3>
+                <p><strong>To check for external domains manually:</strong></p>
+                <ol>
+                    <li><strong>vCenter UI Method:</strong>
+                        <ul>
+                            <li>Open vCenter Server UI</li>
+                            <li>Navigate to: Administration → Single Sign On → Users and Groups</li>
+                            <li>Check each group for members from external domains</li>
+                            <li>Look for domains other than 'vsphere.local'</li>
+                        </ul>
+                    </li>
+                    <li><strong>PowerCLI Alternative:</strong>
+                        <ul>
+                            <li>Use newer Identity Provider APIs: <code>Invoke-ListIdentityProviders</code></li>
+                            <li>Check for external identity sources configured</li>
+                        </ul>
+                    </li>
+                    <li><strong>REST API Method:</strong>
+                        <ul>
+                            <li>Use vCenter REST APIs directly for SSO data</li>
+                            <li>Query: <code>/rest/com/vmware/cis/tagging</code> endpoints</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+            <div class="sso-stats">
+                <h3>🔧 Technical Details</h3>
+                <p><strong>Common reasons for SSO cmdlet unavailability:</strong></p>
+                <ul>
+                    <li>Modern PowerCLI versions have deprecated traditional SSO cmdlets</li>
+                    <li>SSO modules may not be installed or loaded</li>
+                    <li>vCenter version compatibility with PowerCLI modules</li>
+                    <li>Administrative privilege requirements</li>
+                </ul>
+            </div>
+"@
+        
+        if ($SsoAnalysis.FallbackMessage) {
+            $ssoHtml += @"
+            <div class="sso-stats">
+                <h3>💡 Recommended Actions</h3>
+                <pre style="white-space: pre-wrap; font-family: monospace; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 5px;">$($SsoAnalysis.FallbackMessage)</pre>
+            </div>
+"@
+        }
+    } else {
+        # Show normal SSO analysis results
+        # Show statistics
+        $ssoHtml += @"
+            <div class="sso-stats">
+                <h3>📊 Analysis Summary</h3>
+                <p><strong>Groups Scanned:</strong> $($SsoAnalysis.TotalGroupsScanned)</p>
+                <p><strong>External Members Found:</strong> $($SsoAnalysis.ExternalMembers.Count)</p>
+                <p><strong>External Domains Discovered:</strong> $($SsoAnalysis.ExternalDomains.Count)</p>
+            </div>
+"@
+
+        # Show external domains if found
+        if ($SsoAnalysis.ExternalDomains.Count -gt 0) {
+            $ssoHtml += @"
+            <h3>🏢 External Domains Found</h3>
+            <div class="sso-domains-grid">
+"@
+            
+            foreach ($domain in $SsoAnalysis.ExternalDomains) {
+                $ssoHtml += @"
+                <div class="sso-domain-card">
+                    <div class="sso-domain-name">🌐 $($domain.Domain)</div>
+                    <p><strong>Members:</strong> $($domain.MemberCount)</p>
+                    <p><strong>Groups:</strong> $($domain.Groups.Count)</p>
+                    <p><strong>Group Names:</strong> $($domain.Groups -join ', ')</p>
+                </div>
+"@
+            }
+            
+            $ssoHtml += @"
+            </div>
+"@
+        } else {
+            $ssoHtml += @"
+            <div class="sso-stats">
+                <h3>✅ No External Domains Found</h3>
+                <p>All SSO group members belong to the vsphere.local domain.</p>
+            </div>
+"@
+        }
+
+        # Show errors if any
+        if ($SsoAnalysis.ErrorsEncountered.Count -gt 0) {
+            if ($SsoAnalysis.HasInsufficientPrivileges) {
+                $ssoHtml += @"
+            <div class="sso-warning">
+                <h3>⚠️ Privilege Warning</h3>
+                <p>Some SSO groups could not be analyzed due to insufficient privileges. To get complete results, ensure you have SSO administrator access.</p>
+                <p><strong>Errors encountered:</strong> $($SsoAnalysis.ErrorsEncountered.Count)</p>
+            </div>
+"@
+            } else {
+                $ssoHtml += @"
+            <div class="sso-error">
+                <h3>❌ Analysis Errors</h3>
+                <p>Errors were encountered during SSO analysis:</p>
+                <ul>
+"@
+                foreach ($error in $SsoAnalysis.ErrorsEncountered | Select-Object -First 5) {
+                    $ssoHtml += "<li><strong>$($error.GroupName):</strong> $($error.ErrorMessage)</li>"
+                }
+                
+                if ($SsoAnalysis.ErrorsEncountered.Count -gt 5) {
+                    $ssoHtml += "<li><em>... and $($SsoAnalysis.ErrorsEncountered.Count - 5) more errors</em></li>"
+                }
+                
+                $ssoHtml += @"
+                </ul>
+            </div>
+"@
+            }
+        }
+    }
+
+    $ssoHtml += @"
+        </div>
+"@
+    
+    return $ssoHtml
+}
+
 function Export-HTMLReport {
     <#
     .SYNOPSIS
@@ -468,6 +622,9 @@ function Export-HTMLReport {
     
     .PARAMETER Config
         Configuration object.
+    
+    .PARAMETER SsoAnalysis
+        Optional SSO analysis data to include in the report.
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -477,7 +634,10 @@ function Export-HTMLReport {
         [string]$OutputPath,
         
         [Parameter(Mandatory = $true)]
-        [hashtable]$Config
+        [hashtable]$Config,
+        
+        [Parameter()]
+        [hashtable]$SsoAnalysis
     )
     
     Write-Host "📄 Generating grouped HTML report..."
@@ -670,6 +830,49 @@ function Export-HTMLReport {
             border-radius: 10px;
             font-size: 0.8em;
         }
+        .sso-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .sso-domains-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .sso-domain-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .sso-domain-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .sso-stats {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .sso-error {
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .sso-warning {
+            background-color: #f39c12;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
@@ -706,6 +909,14 @@ function Export-HTMLReport {
     $htmlContent += @"
             </div>
         </div>
+"@
+
+    # Add SSO Analysis section if data is provided
+    if ($SsoAnalysis) {
+        $htmlContent += Get-SsoAnalysisHtml -SsoAnalysis $SsoAnalysis
+    }
+    
+    $htmlContent += @"
         
         <div class="toc">
             <h3>📑 Table of Contents</h3>
@@ -821,5 +1032,6 @@ Export-ModuleMember -Function @(
     'Add-TooltipAssetsToHtml',
     'New-TooltipStylesheet',
     'New-TooltipJavaScript',
+    'Get-SsoAnalysisHtml',
     'Export-HTMLReport'
 )

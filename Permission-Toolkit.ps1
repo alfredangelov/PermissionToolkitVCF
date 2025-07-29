@@ -50,6 +50,24 @@ if (-not $viServer) {
     exit 1
 }
 
+# --- SSO External Domain Analysis (if enabled) ---
+$ssoAnalysis = $null
+if ($config.ContainsKey('EnableSsoAnalysis') -and $config.EnableSsoAnalysis -eq $true) {
+    Write-Host "`n🌐 Performing SSO external domain analysis..." -ForegroundColor Cyan
+    $ssoAnalysis = Get-ExternalSsoMembers
+    
+    if ($ssoAnalysis.ExternalDomains.Count -gt 0) {
+        Write-Host "🔍 Found external domains in SSO:" -ForegroundColor Yellow
+        foreach ($domain in $ssoAnalysis.ExternalDomains) {
+            Write-Host "  🏢 $($domain.Domain): $($domain.MemberCount) members in $($domain.Groups.Count) groups" -ForegroundColor White
+        }
+    } else {
+        Write-Host "✅ No external domains found - all members are from vsphere.local" -ForegroundColor Green
+    }
+} else {
+    Write-Host "ℹ️ SSO analysis disabled in configuration" -ForegroundColor Gray
+}
+
 # --- Audit Permissions ---
 Write-Host "`n🔎 Auditing permissions..."
 $permissions = Get-Permissions -Server $viServer -Config $config
@@ -72,7 +90,7 @@ Write-Host "  📈 Total: $($summary.TotalPermissions) permissions across $($sum
 # --- Export HTML Report ---
 Write-Host "`n📄 Exporting permissions report to HTML..."
 $reportPath = Join-Path $PSScriptRoot "Permissions-Report.html"
-Export-HTMLReport -Permissions $permissions -OutputPath $reportPath -Config $config
+Export-HTMLReport -Permissions $permissions -OutputPath $reportPath -Config $config -SsoAnalysis $ssoAnalysis
 
 Write-Host "`n✅ Report generated: $reportPath" -ForegroundColor Green
 

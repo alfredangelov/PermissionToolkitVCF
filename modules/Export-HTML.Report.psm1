@@ -586,8 +586,8 @@ function Get-SsoAnalysisHtml {
                 <p>Errors were encountered during SSO analysis:</p>
                 <ul>
 "@
-                foreach ($error in $SsoAnalysis.ErrorsEncountered | Select-Object -First 5) {
-                    $ssoHtml += "<li><strong>$($error.GroupName):</strong> $($error.ErrorMessage)</li>"
+                foreach ($InScriptError in $SsoAnalysis.ErrorsEncountered | Select-Object -First 5) {
+                    $ssoHtml += "<li><strong>$($InScriptError.GroupName):</strong> $($InScriptError.ErrorMessage)</li>"
                 }
                 
                 if ($SsoAnalysis.ErrorsEncountered.Count -gt 5) {

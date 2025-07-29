@@ -37,7 +37,7 @@ $coreFiles = @(
 
 # Check optional/enhancement files
 $enhancementFiles = @(
-    ".\exclude-permissions.txt",
+    ".\exclude-permissions.txt"
 )
 
 Write-Host "`n📂 Verifying core toolkit files..."

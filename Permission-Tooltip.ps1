@@ -220,6 +220,9 @@ for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
     
     Write-Host "  🔄 Processing chunk $($chunkIndex + 1)/$totalChunks (tooltips $($startIndex + 1)-$($endIndex + 1))" -ForegroundColor Gray
     
+    # Monitor HTML size before processing this chunk
+    $htmlSizeBeforeChunk = $enhancedHtml.Length
+    
     # Create hashtable for current chunk
     $chunkTooltipData = @{}
     foreach ($key in $currentChunk) {
@@ -228,6 +231,26 @@ for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
     
     # Process chunk using existing module function
     $enhancedHtml = Convert-HtmlToTooltipEnabled -HtmlContent $enhancedHtml -TooltipData $chunkTooltipData
+    
+    # Check for excessive HTML size growth
+    $htmlSizeAfterChunk = $enhancedHtml.Length
+    $chunkGrowthRatio = if ($htmlSizeBeforeChunk -gt 0) { $htmlSizeAfterChunk / $htmlSizeBeforeChunk } else { 1 }
+    
+    if ($chunkGrowthRatio -gt 2.0) {
+        Write-Warning "⚠️  Excessive HTML growth detected in chunk $($chunkIndex + 1)!"
+        Write-Warning "   Size before: $([math]::Round($htmlSizeBeforeChunk/1KB, 2)) KB"
+        Write-Warning "   Size after: $([math]::Round($htmlSizeAfterChunk/1KB, 2)) KB"
+        Write-Warning "   Growth ratio: $([math]::Round($chunkGrowthRatio, 2))x"
+        Write-Warning "   This may indicate duplicate tooltip processing. Aborting to prevent memory exhaustion."
+        
+        # Save current progress before aborting
+        $emergencyPath = $OutputHtmlPath -replace '\.html$', "-emergency-save-chunk$($chunkIndex).html"
+        $enhancedHtml | Out-File -FilePath $emergencyPath -Encoding UTF8
+        Write-Host "🚨 Emergency save created: $emergencyPath" -ForegroundColor Red
+        
+        Write-Error "Processing aborted due to excessive HTML growth. Check module regex patterns for duplicates."
+        exit 1
+    }
     
     $processedCount += $currentChunk.Count
     $percentComplete = [math]::Round(($processedCount / $totalTooltips) * 100, 1)
@@ -246,9 +269,9 @@ for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
         Write-Host "    💾 Current HTML size: $([math]::Round($currentSize/1KB, 2)) KB" -ForegroundColor Cyan
         
         # Optional backup save (uncomment if needed for large datasets)
-        # $backupPath = $OutputHtmlPath -replace '\.html$', "-backup-chunk$($chunkIndex + 1).html"
-        # $enhancedHtml | Out-File -FilePath $backupPath -Encoding UTF8
-        # Write-Host "    💾 Backup saved: $backupPath" -ForegroundColor Gray
+        $backupPath = $OutputHtmlPath -replace '\.html$', "-backup-chunk$($chunkIndex + 1).html"
+        $enhancedHtml | Out-File -FilePath $backupPath -Encoding UTF8
+        Write-Host "    💾 Backup saved: $backupPath" -ForegroundColor Gray
     }
 }
 

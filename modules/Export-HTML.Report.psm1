@@ -52,21 +52,31 @@ function Convert-HtmlToTooltipEnabled {
         $escapedPrincipal = [regex]::Escape($tooltipInfo.Principal)
         $escapedRole = [regex]::Escape($tooltipInfo.Role)
         
+        # Skip if this content has already been wrapped with tooltips
+        if ($enhancedHtml -match "<span class=`"permission-tooltip`">$escapedEntityName<span class=`"tooltiptext`">" -or
+            $enhancedHtml -match "<span class=`"permission-tooltip`">$escapedPrincipal<span class=`"tooltiptext`">" -or
+            $enhancedHtml -match "<span class=`"permission-tooltip`">$escapedRole<span class=`"tooltiptext`">") {
+            continue # Skip this entity as it's already processed
+        }
+        
         # Create patterns to match permission entries in the HTML
         $patterns = @(
-            # Match table rows containing the entity name
-            "(<tr[^>]*>.*?<td[^>]*>)($escapedEntityName)(</td>.*?</tr>)",
-            # Match span or div elements containing the principal
-            "(<span[^>]*>|<div[^>]*>)($escapedPrincipal)(</span>|</div>)",
-            # Match role references
-            "(<td[^>]*>|<span[^>]*>)($escapedRole)(</td>|</span>)"
+            # Match table cells containing the entity name (simple and targeted)
+            "(<td[^>]*>)($escapedEntityName)(</td>)",
+            # Match table cells containing the principal
+            "(<td[^>]*>)($escapedPrincipal)(</td>)",
+            # Match table cells containing the role
+            "(<td[^>]*>)($escapedRole)(</td>)"
         )
         
+        $applied = $false
         foreach ($pattern in $patterns) {
-            if ($enhancedHtml -match $pattern) {
+            if (-not $applied -and $enhancedHtml -match $pattern) {
                 $replacement = "$1<span class=`"permission-tooltip`">$2<span class=`"tooltiptext`">$tooltipContent</span></span>$3"
-                $enhancedHtml = $enhancedHtml -replace $pattern, $replacement
-                break # Only apply tooltip once per entity
+                # Use regex to replace only the first match
+                $enhancedHtml = [regex]::Replace($enhancedHtml, $pattern, $replacement, 1)
+                $applied = $true
+                break
             }
         }
     }

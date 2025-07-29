@@ -232,15 +232,26 @@ for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
     # Process chunk using existing module function
     $enhancedHtml = Convert-HtmlToTooltipEnabled -HtmlContent $enhancedHtml -TooltipData $chunkTooltipData
     
-    # Check for excessive HTML size growth
+    # Check for excessive HTML size growth (intelligent thresholds based on file size)
     $htmlSizeAfterChunk = $enhancedHtml.Length
     $chunkGrowthRatio = if ($htmlSizeBeforeChunk -gt 0) { $htmlSizeAfterChunk / $htmlSizeBeforeChunk } else { 1 }
     
-    if ($chunkGrowthRatio -gt 2.0) {
+    # Dynamic threshold: smaller files can have higher growth ratios due to CSS/JS overhead
+    # Large files (>1MB) should have lower growth ratios to detect actual problems
+    $sizeThresholdMB = $htmlSizeBeforeChunk / 1MB
+    $maxGrowthRatio = if ($sizeThresholdMB -lt 0.5) { 
+        5.0   # Small files (<500KB): Allow up to 5x growth (normal for tooltip enhancement)
+    } elseif ($sizeThresholdMB -lt 2.0) { 
+        3.0   # Medium files (500KB-2MB): Allow up to 3x growth
+    } else { 
+        2.0   # Large files (>2MB): Allow up to 2x growth
+    }
+    
+    if ($chunkGrowthRatio -gt $maxGrowthRatio) {
         Write-Warning "⚠️  Excessive HTML growth detected in chunk $($chunkIndex + 1)!"
         Write-Warning "   Size before: $([math]::Round($htmlSizeBeforeChunk/1KB, 2)) KB"
         Write-Warning "   Size after: $([math]::Round($htmlSizeAfterChunk/1KB, 2)) KB"
-        Write-Warning "   Growth ratio: $([math]::Round($chunkGrowthRatio, 2))x"
+        Write-Warning "   Growth ratio: $([math]::Round($chunkGrowthRatio, 2))x (threshold: $([math]::Round($maxGrowthRatio, 1))x)"
         Write-Warning "   This may indicate duplicate tooltip processing. Aborting to prevent memory exhaustion."
         
         # Save current progress before aborting
@@ -250,6 +261,13 @@ for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
         
         Write-Error "Processing aborted due to excessive HTML growth. Check module regex patterns for duplicates."
         exit 1
+    }
+    
+    # Provide informational feedback about growth (especially for smaller files)
+    if ($chunkGrowthRatio -gt 2.0 -and $sizeThresholdMB -lt 0.5) {
+        Write-Host "    ℹ️  HTML size growth: $([math]::Round($chunkGrowthRatio, 2))x (normal for small files when adding tooltips)" -ForegroundColor Cyan
+    } elseif ($chunkGrowthRatio -gt 1.5) {
+        Write-Host "    📈 HTML size growth: $([math]::Round($chunkGrowthRatio, 2))x" -ForegroundColor Gray
     }
     
     $processedCount += $currentChunk.Count

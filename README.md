@@ -79,6 +79,7 @@ An advanced PowerShell toolkit for comprehensive vSphere permission auditing wit
 # Clone/download the toolkit and run initialization
 .\Initialize-Environment.ps1
 ```
+
 **What it does:**
 
 - ✅ Validates PowerShell version (7.0+ recommended, 5.1+ supported)

@@ -7,6 +7,9 @@
     about permissions, roles, and objects when users hover over elements.
     Uses tooltip data exported from Permission-Toolkit.ps1 or accepts custom parameters.
     
+    MEMORY OPTIMIZATION: Uses chunked processing to handle large datasets efficiently.
+    Processes tooltips in configurable chunks (default 300) to prevent memory exhaustion.
+    
 .PARAMETER InputHtmlPath
     Path to the input HTML report file (optional if using default)
     
@@ -16,11 +19,23 @@
 .PARAMETER TooltipDataPath
     Path to the JSON file containing tooltip data (optional if using default)
 
+.PARAMETER ChunkSize
+    Override the chunk size for processing (optional, uses config default if not specified)
+
 .EXAMPLE
     .\Permission-Tooltip.ps1
     
 .EXAMPLE
     .\Permission-Tooltip.ps1 -InputHtmlPath "custom-report.html" -OutputHtmlPath "custom-enhanced.html"
+    
+.EXAMPLE
+    .\Permission-Tooltip.ps1 -ChunkSize 150
+    Uses smaller chunks for memory-constrained environments
+    
+.NOTES
+    For large datasets (>1000 tooltips), adjust TooltipChunkSize in Configuration.psd1
+    to balance processing speed vs. memory usage. Smaller chunks use less memory but
+    take longer to process.
 #>
 
 param(
@@ -31,7 +46,10 @@ param(
     [string]$OutputHtmlPath,
     
     [Parameter(Mandatory = $false)]
-    [string]$TooltipDataPath
+    [string]$TooltipDataPath,
+    
+    [Parameter(Mandatory = $false)]
+    [int]$ChunkSize = 0  # 0 = use config default, >0 = override config
 )
 
 Write-Host "`n🎯 Enhancing HTML report with tooltips..." -ForegroundColor Cyan
@@ -162,24 +180,80 @@ $tooltipWidth = if ($config.ContainsKey('TooltipMaxWidth')) {
 $tooltipCSS = New-TooltipStylesheet -Theme $tooltipTheme -MaxWidth $tooltipWidth
 $tooltipJS = New-TooltipJavaScript -EnableFiltering $true -EnableKeyboard $true
 
-# --- Process HTML Content using Module Functions ---
+# --- Process HTML Content using Chunked Processing ---
 Write-Host "🔄 Processing HTML content and adding tooltips..."
 Write-Host "📊 Total permissions to process: $($tooltipData.Count)" -ForegroundColor Cyan
 
 $progressTimer = [System.Diagnostics.Stopwatch]::StartNew()
 
-# Add progress reporting to the conversion function
-Write-Host "🔄 Converting HTML elements to tooltip-enabled format..." -ForegroundColor Yellow
-Write-Host "  ⏳ This may take several minutes for large datasets..." -ForegroundColor Gray
+# Configuration for chunked processing
+$chunkSize = if ($ChunkSize -gt 0) {
+    Write-Host "🔧 Using command-line chunk size override: $ChunkSize" -ForegroundColor Yellow
+    $ChunkSize
+} elseif ($config.ContainsKey('TooltipChunkSize')) { 
+    $config.TooltipChunkSize 
+} else { 
+    300  # Default safe chunk size
+}
+
+Write-Host "🧩 Using chunked processing with chunks of $chunkSize tooltips" -ForegroundColor Yellow
+Write-Host "  ⏳ This approach conserves memory for large datasets..." -ForegroundColor Gray
 
 # Since we can't modify the module function directly, we'll monitor file size changes
 $originalHtmlSize = $htmlContent.Length
 Write-Host "  📏 Original HTML size: $([math]::Round($originalHtmlSize/1KB, 2)) KB" -ForegroundColor Gray
 
-$enhancedHtml = Convert-HtmlToTooltipEnabled -HtmlContent $htmlContent -TooltipData $tooltipData
+# Initialize chunked processing
+$enhancedHtml = $htmlContent
+$tooltipKeys = $tooltipData.Keys | Sort-Object  # Sort for consistent processing
+$totalTooltips = $tooltipKeys.Count
+$totalChunks = [math]::Ceiling($totalTooltips / $chunkSize)
+$processedCount = 0
+
+Write-Host "  📦 Processing $totalTooltips tooltips in $totalChunks chunks of $chunkSize each" -ForegroundColor Cyan
+
+# Process tooltips in chunks
+for ($chunkIndex = 0; $chunkIndex -lt $totalChunks; $chunkIndex++) {
+    $startIndex = $chunkIndex * $chunkSize
+    $endIndex = [math]::Min($startIndex + $chunkSize - 1, $totalTooltips - 1)
+    $currentChunk = $tooltipKeys[$startIndex..$endIndex]
+    
+    Write-Host "  🔄 Processing chunk $($chunkIndex + 1)/$totalChunks (tooltips $($startIndex + 1)-$($endIndex + 1))" -ForegroundColor Gray
+    
+    # Create hashtable for current chunk
+    $chunkTooltipData = @{}
+    foreach ($key in $currentChunk) {
+        $chunkTooltipData[$key] = $tooltipData[$key]
+    }
+    
+    # Process chunk using existing module function
+    $enhancedHtml = Convert-HtmlToTooltipEnabled -HtmlContent $enhancedHtml -TooltipData $chunkTooltipData
+    
+    $processedCount += $currentChunk.Count
+    $percentComplete = [math]::Round(($processedCount / $totalTooltips) * 100, 1)
+    
+    # Memory cleanup after each chunk
+    $chunkTooltipData.Clear()
+    $chunkTooltipData = $null
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+    
+    Write-Host "    ✅ Chunk $($chunkIndex + 1) completed - $processedCount/$totalTooltips tooltips processed ($percentComplete%)" -ForegroundColor Green
+    
+    # Optional: Save intermediate progress every 5 chunks or if requested
+    if (($chunkIndex + 1) % 5 -eq 0 -or $chunkIndex -eq ($totalChunks - 1)) {
+        $currentSize = $enhancedHtml.Length
+        Write-Host "    💾 Current HTML size: $([math]::Round($currentSize/1KB, 2)) KB" -ForegroundColor Cyan
+        
+        # Optional backup save (uncomment if needed for large datasets)
+        # $backupPath = $OutputHtmlPath -replace '\.html$', "-backup-chunk$($chunkIndex + 1).html"
+        # $enhancedHtml | Out-File -FilePath $backupPath -Encoding UTF8
+        # Write-Host "    💾 Backup saved: $backupPath" -ForegroundColor Gray
+    }
+}
 
 $conversionTime = $progressTimer.Elapsed.TotalSeconds
-Write-Host "  ✅ HTML conversion completed in $([math]::Round($conversionTime, 2)) seconds" -ForegroundColor Green
+Write-Host "  ✅ Chunked HTML conversion completed in $([math]::Round($conversionTime, 2)) seconds" -ForegroundColor Green
 
 $enhancedHtmlSize = $enhancedHtml.Length
 Write-Host "  📏 Enhanced HTML size: $([math]::Round($enhancedHtmlSize/1KB, 2)) KB (+$([math]::Round(($enhancedHtmlSize-$originalHtmlSize)/1KB, 2)) KB)" -ForegroundColor Cyan
@@ -193,8 +267,9 @@ $progressTimer.Stop()
 
 Write-Host "  ✅ Asset injection completed in $([math]::Round($totalTime - $conversionTime, 2)) seconds" -ForegroundColor Green
 Write-Host "  📏 Final HTML size: $([math]::Round($finalHtmlSize/1KB, 2)) KB" -ForegroundColor Cyan
-Write-Host "🎯 Tooltip processing completed in $([math]::Round($totalTime, 2)) seconds total" -ForegroundColor Green
+Write-Host "🎯 Chunked tooltip processing completed in $([math]::Round($totalTime, 2)) seconds total" -ForegroundColor Green
 Write-Host "  📈 Processing rate: $([math]::Round($tooltipData.Count / $totalTime, 0)) tooltips/second" -ForegroundColor Yellow
+Write-Host "  🧩 Used $totalChunks chunks of $chunkSize tooltips each for memory efficiency" -ForegroundColor Cyan
 
 # --- Export Enhanced HTML ---
 Write-Host "💾 Saving enhanced HTML report..."
@@ -206,13 +281,20 @@ $summary = @{
     InputFile = $InputHtmlPath
     OutputFile = $OutputHtmlPath
     TooltipsAdded = $tooltipData.Count
+    ChunkedProcessing = @{
+        ChunkSize = $chunkSize
+        TotalChunks = $totalChunks
+        ProcessingTime = [math]::Round($totalTime, 2)
+        ProcessingRate = [math]::Round($tooltipData.Count / $totalTime, 0)
+    }
     EnhancementDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Features = @(
         "Interactive hover tooltips",
         "Keyboard accessibility",
         "Mobile touch support", 
         "Filter controls",
-        "Detailed permission information"
+        "Detailed permission information",
+        "Memory-efficient chunked processing"
     )
 }
 

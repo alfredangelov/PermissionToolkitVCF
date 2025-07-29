@@ -10,9 +10,9 @@ Enhanced-Report*
 *-summary.json
 *-tooltip-summary.json
 HOWTO-*.ps1
-HOWT-TO-Use-Tooltips.ps1
 FullOutput-*.txt
-
+*-OPTIMIZATION.md
+test/*
 
 # Test files and temporary directories
 Test-*.ps1

@@ -1,13 +1,14 @@
 @{
     # If $true, actions will be simulated and no changes will be made
-    DryRun                = 'true'
+    DryRun                = $true
 
     # vSphere source server connection details
     SourceServerHost      = 'vcenter.example.com'
+    vCenterVersion        = '8.0'  # vCenter version (affects API endpoint availability) - Options: '6.7', '7.0', '8.0'
 
     # Permission export options
-    ExportGlobalPermissions = 'true'  # Export global permissions
-    ExportNormalPermissions = 'false'   # Export normal (object-level) permissions
+    ExportGlobalPermissions = $true  # Export global permissions
+    ExportNormalPermissions = $false # Export normal (object-level) permissions
     
     # SSO Analysis options
     EnableSsoAnalysis = $false                       # Analyze SSO groups for external domain members

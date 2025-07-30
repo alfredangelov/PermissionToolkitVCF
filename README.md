@@ -1,6 +1,18 @@
 # Permission Toolkit for vSphere v2.0
 
-An advanced PowerShell toolkit for comprehensive vSphere permission auditing with intelligent filtering, interactive reporting, and SSO domain analysis. Designed for enterprise environments requiring detailed permission visibility and security compliance.
+An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
+
+- 🌐 **Basic Settings**: vCenter Server connection details and version
+- 📊 **Export Options**: Global permissions, normal permissions with guided choices
+- 🔒 **Secure Storage**: Credential storage using PowerShell SecretManagement
+- 🌍 **SSO Analysis**: External domain detection options with availability checking
+- 🚫 **Permission Filtering**: Exclusion settings for 90%+ noise reduction
+- 💬 **Tooltip Options**: Interactive enhancement preferences with theme selectionatures:**
+
+- ✨ Sectioned interactive prompts for better user experience
+- ✅ Input validation with helpful error messages
+- 🔍 Real-time feature availability checking
+- 📝 Professional configuration file generation with proper boolean literalsditing with intelligent filtering, interactive reporting, and SSO domain analysis. Designed for enterprise environments requiring detailed permission visibility and security compliance.
 
 ## 🚀 Key Features
 
@@ -91,31 +103,40 @@ An advanced PowerShell toolkit for comprehensive vSphere permission auditing wit
 ### 2. **Configuration**
 
 ```powershell
-# Interactive configuration setup
+# Interactive configuration builder with enhanced UX
 .\Build-Configuration.ps1
 ```
 
 **Configures:**
 
-- 🌐 vCenter Server connection details
-- 🔒 Secure credential storage (PowerShell SecretManagement)
-- 🚫 Permission exclusion settings (90%+ noise reduction)
-- 🌍 SSO external domain analysis options
-- 💬 Interactive tooltip preferences
+- 🌐 **Basic Settings**: vCenter Server connection details and version
+- � **Export Options**: Global permissions, normal permissions with guided choices
+- �🔒 **Secure Storage**: Credential storage using PowerShell SecretManagement
+- 🌍 **SSO Analysis**: External domain detection options with availability checking
+- 🚫 **Permission Filtering**: Exclusion settings for 90%+ noise reduction
+- 💬 **Tooltip Options**: Interactive enhancement preferences with theme selection
+
+**Features:**
+- ✨ Sectioned interactive prompts for better user experience
+- ✅ Input validation with helpful error messages
+- � Real-time feature availability checking
+- 📝 Professional configuration file generation with proper boolean literals
 
 ### 3. **Validation**
 
 ```powershell
-# Test configuration and connectivity
+# Comprehensive 6-step validation process
 .\Validate-Configuration.ps1
 ```
 
 **Validates:**
 
-- ✅ vCenter Server connectivity
-- ✅ Authentication and authorization
-- ✅ Required permissions for auditing
-- ✅ SSO access (if enabled)
+- ✅ **Step 1**: Configuration file validation (syntax, structure, required values)
+- ✅ **Step 2**: Core settings verification (vCenter host, version compatibility)
+- ✅ **Step 3**: Network connectivity testing (ICMP ping + HTTPS/443 connectivity)
+- ✅ **Step 4**: Credential validation (SecretManagement integration)
+- ✅ **Step 5**: Datacenter/permission access testing (actual vCenter connection)
+- ✅ **Step 6**: Module and file validation (dependencies, file integrity)
 
 ### 4. **Permission Analysis**
 
@@ -147,13 +168,28 @@ An advanced PowerShell toolkit for comprehensive vSphere permission auditing wit
 
 ## ⚙️ Configuration Options
 
-The toolkit uses a sophisticated configuration system with templates and validation:
+The toolkit uses a sophisticated configuration system with interactive setup, templates, and comprehensive validation:
+
+### **Configuration Setup Methods**
+
+1. **Interactive Setup** (Recommended):
+   ```powershell
+   .\Build-Configuration.ps1
+   ```
+   - Sectioned prompts for better user experience
+   - Input validation with helpful error messages
+   - Real-time feature availability checking
+   - Proper boolean literal generation
+
+2. **Manual Setup**:
+   - Copy `shared/Configuration-template.psd1` to `shared/Configuration.psd1`
+   - Edit values using proper PowerShell boolean literals (`$true`/`$false`)
 
 ### **Configuration Files**
 
 - `shared/Configuration-template.psd1` - Template with all available options
 - `shared/Configuration.psd1` - Your active configuration (gitignored)
-- `exclude-permissions.txt` - Permission exclusion patterns
+- `exclude-permissions.txt` - Permission exclusion patterns (26 patterns)
 
 ### **Core Settings**
 
@@ -161,22 +197,22 @@ The toolkit uses a sophisticated configuration system with templates and validat
 @{
     # vSphere Connection
     SourceServerHost = 'vcenter.domain.com'
-    dataCenter = 'MainDC'
+    vCenterVersion = '8.0'             # Options: '6.7', '7.0', '8.0'
     
     # Permission Export Options
     ExportGlobalPermissions = $true    # Root-level permissions
-    ExportNormalPermissions = $true    # Object-level permissions
+    ExportNormalPermissions = $false   # Object-level permissions
     
-    # Advanced Features
+    # Advanced Features  
     EnablePermissionExclusion = $true  # Filter out service accounts (90%+ noise reduction)
-    ExclusionFilePath = 'exclude-permissions.txt'
+    #ExclusionFilePath = 'exclude-permissions.txt'  # Exclusion patterns file
     
-    EnableSsoAnalysis = $true          # SSO external domain analysis
+    EnableSsoAnalysis = $false         # SSO external domain analysis
     
-    EnableTooltips = $true             # Interactive HTML enhancements
-    TooltipTheme = 'Dark'             # Dark, Light, or Blue
-    TooltipMaxWidth = 350             # Tooltip width in pixels
-    TooltipChunkSize = 300            # Processing chunk size
+    EnableTooltips = $false            # Interactive HTML enhancements
+    TooltipTheme = 'Dark'             # Options: Dark, Light, Blue
+    TooltipMaxWidth = 320             # Tooltip width in pixels
+    TooltipChunkSize = 300            # Processing chunk size for memory management
 }
 ```
 
@@ -340,12 +376,27 @@ The toolkit is designed for extensibility. Common enhancement areas:
 
 ### **Troubleshooting**
 
-1. **Run diagnostics**: `.\Initialize-Environment.ps1`
-2. **Validate setup**: `.\Validate-Configuration.ps1`
-3. **Check logs**: Review console output for detailed error messages
+1. **Environment Setup**: `.\Initialize-Environment.ps1` - Validates PowerShell, modules, and files
+2. **Configuration Validation**: `.\Validate-Configuration.ps1` - Comprehensive 6-step validation:
+   - Configuration file syntax and structure
+   - Core settings verification 
+   - Network connectivity (ICMP + HTTPS)
+   - Credential validation
+   - vCenter access testing
+   - Module/file integrity checks
+3. **Interactive Setup**: `.\Build-Configuration.ps1` - Enhanced configuration builder with validation
+4. **Check Logs**: Review console output for detailed error messages and validation results
+
+### **Common Issues & Solutions**
+
+- **SSO Analysis Not Available**: Modern PowerCLI versions may lack traditional SSO cmdlets. The toolkit provides graceful fallback with manual guidance.
+- **Configuration Errors**: Use `.\Build-Configuration.ps1` for proper boolean literal generation (`$true`/`$false`)
+- **Network Connectivity**: Validation includes ICMP ping and HTTPS connectivity testing
+- **Credential Issues**: SecretManagement integration provides secure credential storage and validation
 
 ### **Version History**
 
+- **v2.1**: Enhanced configuration management with interactive setup, comprehensive 6-step validation, proper boolean handling, improved user experience
 - **v2.0**: Major feature release with SSO analysis, exclusion filtering, and enhanced HTML
 - **v1.x**: Initial release with basic permission auditing and tooltip enhancement
 

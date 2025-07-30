@@ -1,5 +1,6 @@
 # Configuration files
 shared/Configuration.psd1
+shared/Configuration-test.psd1
 
 # Generated reports and output files
 *.html

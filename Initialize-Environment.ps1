@@ -175,6 +175,13 @@ if (Test-Path ".\shared\Configuration.psd1") {
             @{ Key = "EnableTooltips"; Name = "Interactive Tooltip Enhancement" }
         )
         
+        # Check for version configuration
+        if ($config.vCenterVersion) {
+            Write-Host "   • vCenter Version: $($config.vCenterVersion)" -ForegroundColor Green
+        } else {
+            Write-Host "   • vCenter Version: Not specified (consider adding to config)" -ForegroundColor Yellow
+        }
+        
         foreach ($feature in $features) {
             if ($config.ContainsKey($feature.Key)) {
                 $status = if ($config[$feature.Key]) { "Enabled" } else { "Disabled" }

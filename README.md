@@ -1,4 +1,4 @@
-# Permission Toolkit for vSphere v2.0
+# Permission Toolkit for vSphere v2.1
 
 An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 
@@ -117,6 +117,7 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 - 💬 **Tooltip Options**: Interactive enhancement preferences with theme selection
 
 **Features:**
+
 - ✨ Sectioned interactive prompts for better user experience
 - ✅ Input validation with helpful error messages
 - � Real-time feature availability checking
@@ -173,9 +174,11 @@ The toolkit uses a sophisticated configuration system with interactive setup, te
 ### **Configuration Setup Methods**
 
 1. **Interactive Setup** (Recommended):
+
    ```powershell
    .\Build-Configuration.ps1
    ```
+
    - Sectioned prompts for better user experience
    - Input validation with helpful error messages
    - Real-time feature availability checking
@@ -379,7 +382,7 @@ The toolkit is designed for extensibility. Common enhancement areas:
 1. **Environment Setup**: `.\Initialize-Environment.ps1` - Validates PowerShell, modules, and files
 2. **Configuration Validation**: `.\Validate-Configuration.ps1` - Comprehensive 6-step validation:
    - Configuration file syntax and structure
-   - Core settings verification 
+   - Core settings verification
    - Network connectivity (ICMP + HTTPS)
    - Credential validation
    - vCenter access testing

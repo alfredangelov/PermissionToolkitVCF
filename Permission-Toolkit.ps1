@@ -87,9 +87,19 @@ foreach ($groupName in $groupedPermissions.Keys) {
 }
 Write-Host "  📈 Total: $($summary.TotalPermissions) permissions across $($summary.GroupCounts.Keys.Where({$summary.GroupCounts[$_] -gt 0}).Count) categories" -ForegroundColor Yellow
 
+# Get vCenter hostname for file naming
+$vCenterHostname = $config.SourceServerHost
+if ($vCenterHostname) {
+    # Remove protocol and port if present, and sanitize for filename
+    $hostnameForFile = $vCenterHostname -replace '^https?://', '' -replace ':\d+$', ''
+    $hostnameForFile = $hostnameForFile -replace '[\\/:*?"<>|]', '-'
+} else {
+    $hostnameForFile = "unknown-vcenter"
+}
+
 # --- Export HTML Report ---
 Write-Host "`n📄 Exporting permissions report to HTML..."
-$reportPath = Join-Path $PSScriptRoot "Permissions-Report.html"
+$reportPath = Join-Path $PSScriptRoot "Permissions-Report-$hostnameForFile.html"
 Export-HTMLReport -Permissions $permissions -OutputPath $reportPath -Config $config -SsoAnalysis $ssoAnalysis
 
 Write-Host "`n✅ Report generated: $reportPath" -ForegroundColor Green
@@ -151,7 +161,7 @@ if ($config.ContainsKey('EnableTooltips') -and $config.EnableTooltips -eq $true)
         }
         
         # Export to JSON file
-        $tooltipDataPath = Join-Path $PSScriptRoot "tooltip-data.json"
+        $tooltipDataPath = Join-Path $PSScriptRoot "tooltip-data-$hostnameForFile.json"
         $exportData | ConvertTo-Json -Depth 10 | Out-File -FilePath $tooltipDataPath -Encoding UTF8
         
         Write-Host "✅ Tooltip data exported: $tooltipDataPath" -ForegroundColor Green

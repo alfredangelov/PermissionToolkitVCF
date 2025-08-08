@@ -40,7 +40,10 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 
 ### 🛡️ **Enterprise Security**
 
-- **Secure Credential Storage**: PowerShell SecretManagement integration
+- **Secure Credential Storage**: PowerShell SecretManagement integration with vault protection
+- **Multiple Credential Update Methods**: Comprehensive, quick, and programmatic credential management
+- **Auto-Discovery**: Automatically reads vCenter server from configuration
+- **Credential Verification**: Confirms storage and retrieval of updated credentials
 - **Configuration Management**: Template-based configuration with validation
 - **Modular Architecture**: Maintainable, testable, and extensible design
 - **Comprehensive Testing**: Full test suite for all functionality
@@ -50,6 +53,7 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 - **90%+ Noise Reduction**: Intelligent filtering removes service account clutter
 - **Chunked Processing**: Memory-efficient handling of large permission sets
 - **Progress Reporting**: Real-time feedback during long-running operations
+- **Smart File Naming**: Automatic hostname-based file naming for multi-vCenter environments
 - **Error Resilience**: Graceful handling of privilege limitations and API issues
 
 ## 📁 Project Structure
@@ -62,25 +66,28 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 │   ├── Validate-Configuration.ps1        # Configuration and connectivity validation
 │   ├── Permission-Toolkit.ps1            # Main permission analysis engine
 │   ├── Permission-Tooltip.ps1            # Interactive tooltip enhancement
+│   ├── Update-Credentials.ps1            # Comprehensive credential update utility
+│   ├── Quick-CredentialUpdate.ps1        # Fast credential update script
 │   └── Monitor-TooltipProgress.ps1       # Tooltip processing progress monitor
 │
 ├── 🔧 Modules (PowerShell Modules)
 │   ├── Connect-VSphere.psm1              # vSphere connection management
 │   ├── Get-Permissions.psm1              # Permission auditing with exclusion filtering
-│   ├── Utils.psm1                        # Core utilities (grouping, SSO analysis, exclusions)
+│   ├── Utils.psm1                        # Core utilities (grouping, SSO analysis, exclusions, credential management)
 │   └── Export-HTML.Report.psm1           # Advanced HTML generation with SSO integration
 │
 ├── ⚙️ Configuration
 │   ├── shared/Configuration.psd1         # Active configuration (gitignored)
 │   ├── shared/Configuration-template.psd1 # Configuration template with all options
-│   └── exclude-permissions.txt           # Permission exclusion patterns (26 patterns)
+│   ├── exclude-permissions.txt           # Permission exclusion patterns (26 patterns)
+│   └── CREDENTIAL-UPDATE-GUIDE.md        # Comprehensive credential management guide
 │
 │
 └── 📊 Output Files
-    ├── Permissions-Report.html           # Main HTML report with grouping
-    ├── Permissions-Report-Enhanced.html  # Tooltip-enhanced report
-    ├── tooltip-data.json                 # Tooltip data for processing
-    └── *.html                            # Various test and analysis reports
+    ├── Permissions-Report-{hostname}.html           # Main HTML report with grouping
+    ├── Permissions-Report-{hostname}-Enhanced.html  # Tooltip-enhanced report
+    ├── tooltip-data-{hostname}.json                 # Tooltip data for processing
+    └── *.html                                       # Various test and analysis reports
 ```
 
 ## 🏃‍♂️ Quick Start
@@ -148,10 +155,10 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 
 **Generates:**
 
-- 📊 Grouped HTML report by entity type (VMs, Hosts, Clusters, etc.)
+- 📊 Grouped HTML report by entity type (VMs, Hosts, Clusters, etc.) with vCenter hostname in filename
 - 🌐 SSO external domain analysis (if available)
 - 🚫 Filtered results with 90%+ noise reduction
-- 💾 JSON data export for tooltip enhancement
+- 💾 JSON data export for tooltip enhancement (hostname-based naming)
 
 ### 5. **Interactive Enhancement**
 
@@ -166,6 +173,32 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 - 🎨 Professional themes (Dark, Light, Blue)
 - 📱 Mobile-friendly responsive design
 - ♿ Accessibility-compliant interface
+
+### 6. **Credential Management**
+
+The toolkit provides multiple methods to update your vCenter credentials securely:
+
+```powershell
+# Comprehensive credential update with validation
+.\Update-Credentials.ps1
+
+# Quick credential update
+.\Quick-CredentialUpdate.ps1
+
+# Programmatic update (Utils module function)
+Import-Module .\modules\Utils.psm1
+Update-VCenterCredentials
+```
+
+**Features:**
+
+- 🔐 **Secure Storage**: Uses PowerShell SecretManagement vault
+- 🔍 **Auto-Discovery**: Reads vCenter server from configuration
+- ✅ **Verification**: Confirms credential storage and retrieval
+- 🚀 **Multiple Options**: Comprehensive, quick, or programmatic updates
+- 📋 **Current Info**: Displays existing username before update
+
+**See:** `CREDENTIAL-UPDATE-GUIDE.md` for detailed usage instructions
 
 ## ⚙️ Configuration Options
 
@@ -395,10 +428,16 @@ The toolkit is designed for extensibility. Common enhancement areas:
 - **SSO Analysis Not Available**: Modern PowerCLI versions may lack traditional SSO cmdlets. The toolkit provides graceful fallback with manual guidance.
 - **Configuration Errors**: Use `.\Build-Configuration.ps1` for proper boolean literal generation (`$true`/`$false`)
 - **Network Connectivity**: Validation includes ICMP ping and HTTPS connectivity testing
-- **Credential Issues**: SecretManagement integration provides secure credential storage and validation
+- **Credential Issues**: Multiple credential update options available:
+  - `.\Update-Credentials.ps1` - Comprehensive credential update with validation
+  - `.\Quick-CredentialUpdate.ps1` - Fast credential updates
+  - `Update-VCenterCredentials` - Programmatic credential management (Utils module)
+  - See `CREDENTIAL-UPDATE-GUIDE.md` for detailed instructions
 
 ### **Version History**
 
+- **v2.3**: Added hostname-based file naming for multi-vCenter environments, enabling better file organization and management
+- **v2.2**: Added comprehensive credential management with multiple update methods, enhanced security features, and detailed credential update guide
 - **v2.1**: Enhanced configuration management with interactive setup, comprehensive 6-step validation, proper boolean handling, improved user experience
 - **v2.0**: Major feature release with SSO analysis, exclusion filtering, and enhanced HTML
 - **v1.x**: Initial release with basic permission auditing and tooltip enhancement

@@ -54,15 +54,33 @@ param(
 
 Write-Host "`n🎯 Enhancing HTML report with tooltips..." -ForegroundColor Cyan
 
-# --- Set Default Paths ---
+# --- Load Configuration ---
+$configPath = Join-Path $PSScriptRoot 'shared\Configuration.psd1'
+if (-not (Test-Path $configPath)) {
+    Write-Error "Configuration file not found: $configPath"
+    exit 1
+}
+$config = Import-PowerShellDataFile -Path $configPath
+
+# Get vCenter hostname for file naming
+$vCenterHostname = $config.SourceServerHost
+if ($vCenterHostname) {
+    # Remove protocol and port if present, and sanitize for filename
+    $hostnameForFile = $vCenterHostname -replace '^https?://', '' -replace ':\d+$', ''
+    $hostnameForFile = $hostnameForFile -replace '[\\/:*?"<>|]', '-'
+} else {
+    $hostnameForFile = "unknown-vcenter"
+}
+
+# --- Update Default Paths with Hostname ---
 if (-not $InputHtmlPath) {
-    $InputHtmlPath = Join-Path $PSScriptRoot "Permissions-Report.html"
+    $InputHtmlPath = Join-Path $PSScriptRoot "Permissions-Report-$hostnameForFile.html"
 }
 if (-not $OutputHtmlPath) {
-    $OutputHtmlPath = Join-Path $PSScriptRoot "Permissions-Report-Enhanced.html"
+    $OutputHtmlPath = Join-Path $PSScriptRoot "Permissions-Report-$hostnameForFile-Enhanced.html"
 }
 if (-not $TooltipDataPath) {
-    $TooltipDataPath = Join-Path $PSScriptRoot "tooltip-data.json"
+    $TooltipDataPath = Join-Path $PSScriptRoot "tooltip-data-$hostnameForFile.json"
 }
 
 # --- Validate Input Files ---
@@ -77,14 +95,6 @@ if (-not (Test-Path $TooltipDataPath)) {
     Write-Host "💡 Run .\Permission-Toolkit.ps1 with EnableTooltips=true in Configuration.psd1" -ForegroundColor Yellow
     exit 1
 }
-
-# --- Load Configuration ---
-$configPath = Join-Path $PSScriptRoot 'shared\Configuration.psd1'
-if (-not (Test-Path $configPath)) {
-    Write-Error "Configuration file not found: $configPath"
-    exit 1
-}
-$config = Import-PowerShellDataFile -Path $configPath
 
 # --- Import Required Modules ---
 $modulesPath = Join-Path $PSScriptRoot 'modules'

@@ -41,7 +41,6 @@ error-*
 *.p12
 *.crt
 *.pem
-*credential*
 *secret*
 *password*
 

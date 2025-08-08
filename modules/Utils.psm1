@@ -747,6 +747,114 @@ For automated analysis, consider updating to use the newer vCenter Identity Prov
     return $analysis
 }
 
+function Update-VCenterCredentials {
+    <#
+    .SYNOPSIS
+        Update vCenter credentials in the SecretManagement vault
+    
+    .DESCRIPTION
+        Updates the SourceCred secret in PowerShell SecretManagement with new vCenter credentials.
+        Reads the vCenter server from the current configuration.
+    
+    .PARAMETER Force
+        Skip confirmation prompt and update credentials immediately
+    
+    .PARAMETER ConfigPath
+        Path to configuration file (defaults to script root)
+    
+    .EXAMPLE
+        Update-VCenterCredentials
+        Interactively update credentials with confirmation
+    
+    .EXAMPLE
+        Update-VCenterCredentials -Force
+        Update credentials without confirmation
+    #>
+    [CmdletBinding()]
+    param(
+        [switch]$Force,
+        [string]$ConfigPath
+    )
+    
+    # Import SecretManagement if not already loaded
+    try {
+        if (-not (Get-Module -Name Microsoft.PowerShell.SecretManagement)) {
+            Import-Module Microsoft.PowerShell.SecretManagement -ErrorAction Stop
+        }
+    } catch {
+        Write-Error "SecretManagement module required. Install with: Install-Module Microsoft.PowerShell.SecretManagement"
+        return
+    }
+    
+    # Determine configuration path
+    if (-not $ConfigPath) {
+        $scriptRoot = Split-Path $PSScriptRoot -Parent
+        $ConfigPath = Join-Path $scriptRoot "shared\Configuration.psd1"
+    }
+    
+    # Load configuration
+    if (-not (Test-Path $ConfigPath)) {
+        Write-Error "Configuration file not found: $ConfigPath"
+        return
+    }
+    
+    try {
+        $config = Import-PowerShellDataFile -Path $ConfigPath
+        $vCenterServer = $config.SourceServerHost
+    } catch {
+        Write-Error "Failed to load configuration: $($_.Exception.Message)"
+        return
+    }
+    
+    if (-not $vCenterServer) {
+        Write-Error "SourceServerHost not found in configuration"
+        return
+    }
+    
+    Write-Host "🔑 Updating credentials for: $vCenterServer" -ForegroundColor Cyan
+    
+    # Check existing credentials
+    $existing = Get-SecretInfo | Where-Object { $_.Name -eq "SourceCred" }
+    if ($existing) {
+        try {
+            $currentCred = Get-Secret -Name "SourceCred" -ErrorAction Stop
+            Write-Host "Current Username: $($currentCred.UserName)" -ForegroundColor Yellow
+        } catch {
+            Write-Warning "Could not retrieve current credentials"
+        }
+    }
+    
+    # Confirmation (unless -Force)
+    if (-not $Force) {
+        $confirm = Read-Host "Update credentials for '$vCenterServer'? (y/N)"
+        if ($confirm -ne 'y' -and $confirm -ne 'Y') {
+            Write-Host "Operation cancelled" -ForegroundColor Yellow
+            return
+        }
+    }
+    
+    # Get new credentials
+    $newCred = Get-Credential -Message "Enter new credentials for $vCenterServer"
+    if (-not $newCred) {
+        Write-Warning "Credential entry cancelled"
+        return
+    }
+    
+    # Update secret
+    try {
+        Set-Secret -Name "SourceCred" -Secret $newCred -ErrorAction Stop
+        Write-Host "✅ Credentials updated successfully!" -ForegroundColor Green
+        
+        # Verify
+        $verify = Get-Secret -Name "SourceCred" -ErrorAction SilentlyContinue
+        if ($verify -and $verify.UserName -eq $newCred.UserName) {
+            Write-Host "✅ Update verified for user: $($verify.UserName)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Error "Failed to update credentials: $($_.Exception.Message)"
+    }
+}
+
 # Export functions
 Export-ModuleMember -Function @(
     'Get-EntityIdentifier',
@@ -759,5 +867,6 @@ Export-ModuleMember -Function @(
     'Read-ExclusionList',
     'Test-PrincipalExclusion',
     'Filter-PermissionsByExclusion',
-    'Get-ExternalSsoMembers'
+    'Get-ExternalSsoMembers',
+    'Update-VCenterCredentials'
 )

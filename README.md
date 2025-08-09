@@ -92,6 +92,36 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 
 ## 🏃‍♂️ Quick Start
 
+## 🏃 How to run (TL;DR)
+
+1. Initialize and validate
+
+```powershell
+# From the repo root
+./Initialize-Environment.ps1
+./Validate-Configuration.ps1
+```
+
+1. Run the permissions audit (outputs include hostname)
+
+```powershell
+# Generates: Permissions-Report-<vcenter-hostname>.html
+./Permission-Toolkit.ps1
+```
+
+1. Optional: enhance report with tooltips
+
+```powershell
+# Reads report + tooltip JSON (both hostname-suffixed) and writes enhanced HTML
+./Permission-Tooltip.ps1
+```
+
+Notes:
+
+- Credentials are loaded from SecretManagement (vault: VCenterVault, secret: SourceCred).
+- Config file: `shared/Configuration.psd1`.
+- Exclusions: `exclude-permissions.txt`.
+
 ### 1. **Environment Setup**
 
 ```powershell

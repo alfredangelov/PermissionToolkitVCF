@@ -1,24 +1,29 @@
-# Configuration files
-shared/Configuration.psd1
-shared/Configuration-test.psd1
+# Public hygiene: keep sensitive/local artifacts out of the repo
 
-# Generated reports and output files
-*.html
-*-Report.html
-*-report.html
-Permissions-Report*
-Enhanced-Report*
-*-summary.json
-*-tooltip-summary.json
-HOWTO-*.ps1
-FullOutput-*.txt
-*-OPTIMIZATION.md
-test/*
+# Active configuration (contains environment-specific values)
+shared/Configuration.psd1
+
+# Generated reports and tooltip data
+Permissions-Report-*.html
+*Permissions-Report-*-Enhanced.html
+tooltip-data-*.json
 exclude-permissions.txt
+
+# Logs and local outputs
+*.log
+
+# Editor/IDE
+.vscode/
+*.code-workspace
+
+# OS cruft
+.DS_Store
+Thumbs.db
 
 # Test files and temporary directories
 Test-*.ps1
 /tmp/
+test/*
 *-test/
 *-test.*
 test-*

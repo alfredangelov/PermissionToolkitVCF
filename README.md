@@ -79,7 +79,7 @@ An advanced PowerShell toolkit for comprehensive vSphere perm**Configures:**
 ├── ⚙️ Configuration
 │   ├── shared/Configuration.psd1         # Active configuration (gitignored)
 │   ├── shared/Configuration-template.psd1 # Configuration template with all options
-│   ├── exclude-permissions.txt           # Permission exclusion patterns (26 patterns)
+│   ├── exclude-permissions.txt           # Permission exclusion patterns
 │   └── CREDENTIAL-UPDATE-GUIDE.md        # Comprehensive credential management guide
 │
 │
